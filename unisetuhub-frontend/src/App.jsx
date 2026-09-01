@@ -1,3 +1,4 @@
+
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 // ===============================
@@ -34,8 +35,13 @@ import PublicLayout from "./layouts/PublicLayout";
 import Dashboard from "./pages/dashboard/Dashboard";
 import Projects from "./pages/projects/Projects";
 import CreateProject from "./pages/projects/CreateProject";
+import EmployeeProjects from "./pages/employees/EmployeeProjects";
+import EmployeeProjectView from "./pages/employees/EmployeeProjectView";
+
 
 import Tasks from "./pages/tasks/Tasks";
+import EmployeeTasks from "./pages/employees/EmployeeTasks";
+
 import Employees from "./pages/employees/Employees";
 import Teams from "./pages/teams/Teams";
 import Settings from "./pages/settings/Settings";
@@ -179,40 +185,72 @@ function App() {
 
 
             {/* =================================================
+                EMPLOYEE ONLY
+            ================================================= */}
+
+            <Route
+              element={
+                <RoleRoute
+                  allowedRoles={[
+                    "EMPLOYEE",
+                  ]}
+                />
+              }
+            >
+
+              <Route
+                path="/my-projects"
+                element={<EmployeeProjects />}
+              />
+
+              <Route
+                path="/my-projects/:projectId"
+                element={<EmployeeProjectView />}
+              />
+
+              <Route
+                path="/my-tasks"
+                element={<EmployeeTasks />}
+              />
+
+            </Route>
+
+
+            {/* =================================================
                 PROJECT ROUTES
             ================================================= */}
 
-           
+            <Route
+              path="/projects/:projectId"
+              element={<ProjectLayout />}
+            >
+
               <Route
-                path="/projects/:projectId"
-                element={<ProjectLayout />}
-              >
-                <Route
-                  index
-                  element={<ProjectOverview />}
-                />
+                index
+                element={<ProjectOverview />}
+              />
 
-                <Route
-                  path="board"
-                  element={<ProjectBoard />}
-                />
+              <Route
+                path="board"
+                element={<ProjectBoard />}
+              />
 
-                <Route
-                  path="tasks"
-                  element={<ProjectTasks />}
-                />
+              <Route
+                path="tasks"
+                element={<ProjectTasks />}
+              />
 
-                <Route
-                  path="backlog"
-                  element={<ProjectBacklog />}
-                />
+              <Route
+                path="backlog"
+                element={<ProjectBacklog />}
+              />
 
-                <Route
-                  path="members"
-                  element={<ProjectMembers />}
-                />
-              </Route>
-            
+              <Route
+                path="members"
+                element={<ProjectMembers />}
+              />
+
+            </Route>
 
 
             {/* =================================================
@@ -235,3 +273,4 @@ function App() {
 }
 
 export default App;
+

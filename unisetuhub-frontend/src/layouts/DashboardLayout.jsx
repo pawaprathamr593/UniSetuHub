@@ -199,32 +199,34 @@ function DashboardLayout() {
       ];
     }
 
+
     /*
+     * =========================================================
      * EMPLOYEE
-     *
-     * Employee only accesses
-     * projects and tasks.
+     * =========================================================
      */
 
     if (role === "EMPLOYEE") {
-  return [
-    {
-      name: "Dashboard",
-      path: "/dashboard",
-      icon: LayoutDashboard,
-    },
-    {
-      name: "My Projects",
-      path: "/my-projects",
-      icon: FolderKanban,
-    },
-    {
-      name: "My Tasks",
-      path: "/my-tasks",
-      icon: CheckSquare,
-    },
-  ];
-}
+      return [
+        {
+          name: "Dashboard",
+          path: "/dashboard",
+          icon: LayoutDashboard,
+        },
+        {
+          name: "My Projects",
+          path: "/my-projects",
+          icon: FolderKanban,
+        },
+        {
+          name: "My Tasks",
+          path: "/my-tasks",
+          icon: CheckSquare,
+        },
+      ];
+    }
+
+
 
     return [];
   };
