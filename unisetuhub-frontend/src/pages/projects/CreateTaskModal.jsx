@@ -1,44 +1,130 @@
 import { X } from "lucide-react";
 import { useState } from "react";
 
-function CreateTaskModal({ onClose, onCreate }) {
+import { useAuth } from "../../context/AuthContext";
+import { useProjects } from "../../context/ProjectContext";
+
+function CreateTaskModal({
+  onClose,
+  onCreate,
+  projectId,
+}) {
+  const { users = [] } = useAuth();
+  const { getProjectById } = useProjects();
+
   const [form, setForm] = useState({
     title: "",
     description: "",
     priority: "Medium",
-    assignee: "",
+    assigneeId: "",
     dueDate: "",
   });
 
   const handleChange = (e) => {
-    setForm({
-      ...form,
+    setForm((current) => ({
+      ...current,
       [e.target.name]: e.target.value,
-    });
+    }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!form.title.trim()) return;
+    if (!form.title.trim()) {
+      return;
+    }
 
-    onCreate(form);
-
-    setForm({
-      title: "",
-      description: "",
-      priority: "Medium",
-      assignee: "",
-      dueDate: "",
-    });
+    await onCreate(form);
   };
+
+  /*
+   * =========================================================
+   * CURRENT PROJECT
+   * =========================================================
+   */
+
+  const currentProject =
+    getProjectById(projectId);
+
+  /*
+   * =========================================================
+   * PROJECT MEMBER IDS
+   * =========================================================
+   */
+
+  const projectMemberIds =
+    currentProject?.members?.map(
+      (member) => String(member.id)
+    ) || [];
+
+  /*
+   * =========================================================
+   * PROJECT MEMBERS
+   * =========================================================
+   *
+   * ProjectContext gives us member IDs.
+   * AuthContext gives us the actual user details/names.
+   *
+   * Therefore we match them here.
+   */
+
+  const projectMembers = users.filter(
+    (user) =>
+      projectMemberIds.includes(
+        String(user.id)
+      )
+  );
+
+  /*
+   * =========================================================
+   * FALLBACK
+   * =========================================================
+   *
+   * In case the backend returns project members
+   * with complete user information instead of IDs.
+   */
+
+  const membersWithNames =
+    projectMembers.length > 0
+      ? projectMembers
+      : currentProject?.members || [];
+
+  console.log(
+    "========== CREATE TASK MEMBERS =========="
+  );
+
+  console.log(
+    "PROJECT ID:",
+    projectId
+  );
+
+  console.log(
+    "CURRENT PROJECT:",
+    currentProject
+  );
+
+  console.log(
+    "PROJECT MEMBERS:",
+    currentProject?.members
+  );
+
+  console.log(
+    "AUTH USERS:",
+    users
+  );
+
+  console.log(
+    "MATCHED PROJECT MEMBERS:",
+    projectMembers
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
 
       <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
 
-        {/* Header */}
+        {/* HEADER */}
+
         <div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-slate-800">
 
           <div>
@@ -61,12 +147,14 @@ function CreateTaskModal({ onClose, onCreate }) {
 
         </div>
 
-        {/* Form */}
+        {/* FORM */}
+
         <form onSubmit={handleSubmit}>
 
           <div className="space-y-5 p-5">
 
-            {/* Title */}
+            {/* TITLE */}
+
             <div>
 
               <label className="mb-2 block text-sm font-medium">
@@ -84,7 +172,8 @@ function CreateTaskModal({ onClose, onCreate }) {
 
             </div>
 
-            {/* Description */}
+            {/* DESCRIPTION */}
+
             <div>
 
               <label className="mb-2 block text-sm font-medium">
@@ -102,8 +191,11 @@ function CreateTaskModal({ onClose, onCreate }) {
 
             </div>
 
-            {/* Priority + Assignee */}
+            {/* PRIORITY + ASSIGNEE */}
+
             <div className="grid gap-4 sm:grid-cols-2">
+
+              {/* PRIORITY */}
 
               <div>
 
@@ -117,12 +209,24 @@ function CreateTaskModal({ onClose, onCreate }) {
                   onChange={handleChange}
                   className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-950"
                 >
-                  <option>Low</option>
-                  <option>Medium</option>
-                  <option>High</option>
+
+                  <option value="Low">
+                    Low
+                  </option>
+
+                  <option value="Medium">
+                    Medium
+                  </option>
+
+                  <option value="High">
+                    High
+                  </option>
+
                 </select>
 
               </div>
+
+              {/* ASSIGNEE */}
 
               <div>
 
@@ -131,23 +235,52 @@ function CreateTaskModal({ onClose, onCreate }) {
                 </label>
 
                 <select
-                  name="assignee"
-                  value={form.assignee}
+                  name="assigneeId"
+                  value={form.assigneeId}
                   onChange={handleChange}
                   className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-950"
                 >
-                  <option value="">Unassigned</option>
-                  <option value="PP">Pratham Pawar</option>
-                  <option value="AS">Amit Sharma</option>
-                  <option value="RK">Rahul Kumar</option>
-                  <option value="SK">Sneha Kulkarni</option>
+
+                  <option value="">
+                    Unassigned
+                  </option>
+
+                  {membersWithNames.map(
+                    (member) => {
+
+                      const name =
+                        `${member?.firstName || ""} ${
+                          member?.surname || ""
+                        }`.trim() ||
+                        member?.name ||
+                        member?.email ||
+                        `Member ${member?.id}`;
+
+                      return (
+                        <option
+                          key={member.id}
+                          value={member.id}
+                        >
+                          {name}
+                        </option>
+                      );
+                    }
+                  )}
+
                 </select>
+
+                {membersWithNames.length === 0 && (
+                  <p className="mt-1 text-xs text-red-500">
+                    No members assigned to this project.
+                  </p>
+                )}
 
               </div>
 
             </div>
 
-            {/* Due Date */}
+            {/* DUE DATE */}
+
             <div>
 
               <label className="mb-2 block text-sm font-medium">
@@ -159,14 +292,15 @@ function CreateTaskModal({ onClose, onCreate }) {
                 name="dueDate"
                 value={form.dueDate}
                 onChange={handleChange}
-                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-950"
+                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-950"
               />
 
             </div>
 
           </div>
 
-          {/* Footer */}
+          {/* FOOTER */}
+
           <div className="flex justify-end gap-3 border-t border-slate-200 p-5 dark:border-slate-800">
 
             <button

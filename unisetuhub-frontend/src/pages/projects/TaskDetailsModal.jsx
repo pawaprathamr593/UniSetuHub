@@ -1,3 +1,4 @@
+
 import {
     CalendarDays,
     CircleUserRound,
@@ -8,6 +9,9 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { useProjects } from "../../context/ProjectContext";
+import { useAuth } from "../../context/AuthContext";
+
 function TaskDetailsModal({
     task,
     currentStatus,
@@ -17,13 +21,163 @@ function TaskDetailsModal({
 }) {
     const [isEditing, setIsEditing] = useState(false);
 
+    const { projects = [] } = useProjects();
+    const { users = [] } = useAuth();
+
+    /*
+     * =========================================================
+     * FIND CURRENT PROJECT
+     * =========================================================
+     */
+
+    const currentProject = projects.find((project) => {
+        const taskProjectId = String(
+            task?.project?.id ||
+                task?.projectId ||
+                ""
+        )
+            .trim()
+            .toUpperCase();
+
+        const projectId = String(
+            project?.id || ""
+        )
+            .trim()
+            .toUpperCase();
+
+        const projectCode = String(
+            project?.code || ""
+        )
+            .trim()
+            .toUpperCase();
+
+        return (
+            taskProjectId === projectId ||
+            taskProjectId === projectCode
+        );
+    });
+
+    /*
+     * =========================================================
+     * PROJECT MEMBERS
+     * =========================================================
+     */
+
+    const projectMembers = Array.isArray(
+        currentProject?.members
+    )
+        ? currentProject.members
+        : [];
+
+    /*
+     * =========================================================
+     * RESOLVE PROJECT MEMBERS
+     * =========================================================
+     *
+     * project.members may contain:
+     *
+     * 1. Complete user objects
+     * 2. User IDs
+     *
+     * If only an ID is available, we find the
+     * complete user from AuthContext.
+     *
+     */
+
+    const members = projectMembers
+        .map((member) => {
+            const memberId =
+                typeof member === "object"
+                    ? member?.id
+                    : member;
+
+            if (
+                typeof member === "object" &&
+                (
+                    member?.firstName ||
+                    member?.surname ||
+                    member?.name ||
+                    member?.email
+                )
+            ) {
+                return member;
+            }
+
+            return (
+                users.find(
+                    (user) =>
+                        String(user?.id) ===
+                        String(memberId)
+                ) || member
+            );
+        })
+        .filter(Boolean);
+
+    /*
+     * =========================================================
+     * PROJECT LEADER
+     * =========================================================
+     */
+
+    const projectLeader =
+        currentProject?.projectLeader ||
+        null;
+
+    /*
+     * =========================================================
+     * ADD PROJECT LEADER IF NOT ALREADY A MEMBER
+     * =========================================================
+     */
+
+    if (
+        projectLeader?.id &&
+        !members.some(
+            (member) =>
+                String(member?.id) ===
+                String(projectLeader.id)
+        )
+    ) {
+        members.push(projectLeader);
+    }
+
+    /*
+     * =========================================================
+     * EXISTING ASSIGNEE ID
+     * =========================================================
+     *
+     * Backend may return:
+     *
+     * task.assignee = { id: "..." }
+     *
+     * OR:
+     *
+     * task.assigneeId = "..."
+     *
+     */
+
+    const existingAssigneeId =
+        task?.assignee?.id ||
+        task?.assigneeId ||
+        (
+            typeof task?.assignee === "string"
+                ? task.assignee
+                : ""
+        ) ||
+        "NA";
+
     const [form, setForm] = useState({
         title: task.title || "",
         description: task.description || "",
         priority: task.priority || "Medium",
-        assignee: task.assignee || "NA",
+
+        assignee: existingAssigneeId,
+
         dueDate: task.dueDate || "",
-        status: task.status || currentStatus || "todo",
+
+        status:
+            task.status ||
+            currentStatus ||
+            "todo",
     });
 
     const handleChange = (e) => {
@@ -40,10 +194,65 @@ function TaskDetailsModal({
             return;
         }
 
+        /*
+         * Convert frontend status to backend status
+         * before sending the update.
+         */
+
+        let backendStatus = form.status;
+
+        const normalizedStatus =
+            String(
+                form.status || ""
+            )
+                .trim()
+                .toLowerCase();
+
+        if (normalizedStatus === "todo") {
+            backendStatus = "TODO";
+        } else if (
+            normalizedStatus === "progress"
+        ) {
+            backendStatus = "IN_PROGRESS";
+        } else if (
+            normalizedStatus === "review"
+        ) {
+            backendStatus = "SUBMITTED";
+        } else if (
+            normalizedStatus === "done"
+        ) {
+            backendStatus = "DONE";
+        }
+
+        /*
+         * Send the edited task.
+         *
+         * Keep the original task data and overwrite
+         * only the fields being edited.
+         */
+
         onUpdate({
             ...task,
-            ...form,
-            title: form.title.trim(),
+
+            title:
+                form.title.trim(),
+
+            description:
+                form.description.trim(),
+
+            priority:
+                form.priority,
+
+            assigneeId:
+                form.assignee !== "NA"
+                    ? form.assignee
+                    : null,
+
+            dueDate:
+                form.dueDate || null,
+
+            status:
+                backendStatus,
         });
 
         setIsEditing(false);
@@ -59,27 +268,96 @@ function TaskDetailsModal({
         }
     };
 
-    const getAssigneeName = (assignee) => {
-        const members = {
-            PP: "Pratham Pawar",
-            AS: "Amit Sharma",
-            RK: "Rahul Kumar",
-            SK: "Sneha Kulkarni",
-            NA: "Unassigned",
-        };
+    /*
+     * =========================================================
+     * GET ASSIGNEE NAME
+     * =========================================================
+     */
 
-        return members[assignee] || assignee || "Unassigned";
+    const getAssigneeName = (assignee) => {
+        if (
+            !assignee ||
+            assignee === "NA"
+        ) {
+            return "Unassigned";
+        }
+
+        const assigneeId =
+            typeof assignee === "object"
+                ? assignee?.id
+                : assignee;
+
+        const member = members.find(
+            (item) =>
+                String(item?.id) ===
+                String(assigneeId)
+        );
+
+        if (member) {
+            return (
+                member?.name ||
+                `${member?.firstName || ""} ${
+                    member?.surname || ""
+                }`.trim() ||
+                member?.email ||
+                "Unassigned"
+            );
+        }
+
+        /*
+         * If the task already contains a complete
+         * assignee object, use its details.
+         */
+
+        if (
+            typeof assignee === "object"
+        ) {
+            return (
+                assignee?.name ||
+                `${assignee?.firstName || ""} ${
+                    assignee?.surname || ""
+                }`.trim() ||
+                assignee?.email ||
+                "Unassigned"
+            );
+        }
+
+        /*
+         * Fallback to the stored assignee value.
+         */
+
+        return (
+            assignee ||
+            "Unassigned"
+        );
     };
 
     const getStatusName = (status) => {
+        const normalizedStatus =
+            String(
+                status || ""
+            )
+                .trim()
+                .toLowerCase();
+
         const statuses = {
             todo: "TO DO",
             progress: "IN PROGRESS",
             review: "REVIEW",
             done: "DONE",
+
+            TODO: "TO DO",
+            IN_PROGRESS: "IN PROGRESS",
+            SUBMITTED: "REVIEW",
+            REJECTED: "IN PROGRESS",
+            DONE: "DONE",
         };
 
-        return statuses[status] || status;
+        return (
+            statuses[normalizedStatus] ||
+            statuses[status] ||
+            status
+        );
     };
 
     return (
@@ -195,7 +473,10 @@ function TaskDetailsModal({
 
                                     <select
                                         name="assignee"
-                                        value={form.assignee}
+                                        value={
+                                            form.assignee ||
+                                            "NA"
+                                        }
                                         onChange={handleChange}
                                         className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-950"
                                     >
@@ -203,21 +484,38 @@ function TaskDetailsModal({
                                             Unassigned
                                         </option>
 
-                                        <option value="PP">
-                                            Pratham Pawar
-                                        </option>
+                                        {members.map(
+                                            (member) => {
+                                                const memberId =
+                                                    String(
+                                                        member?.id ||
+                                                            ""
+                                                    );
 
-                                        <option value="AS">
-                                            Amit Sharma
-                                        </option>
+                                                const memberName =
+                                                    member?.name ||
+                                                    `${member?.firstName || ""} ${
+                                                        member?.surname || ""
+                                                    }`.trim() ||
+                                                    member?.email ||
+                                                    "User";
 
-                                        <option value="RK">
-                                            Rahul Kumar
-                                        </option>
-
-                                        <option value="SK">
-                                            Sneha Kulkarni
-                                        </option>
+                                                return (
+                                                    <option
+                                                        key={
+                                                            memberId
+                                                        }
+                                                        value={
+                                                            memberId
+                                                        }
+                                                    >
+                                                        {
+                                                            memberName
+                                                        }
+                                                    </option>
+                                                );
+                                            }
+                                        )}
                                     </select>
                                 </div>
 
@@ -232,7 +530,11 @@ function TaskDetailsModal({
 
                                 <select
                                     name="status"
-                                    value={form.status}
+                                    value={
+                                        String(
+                                            form.status || ""
+                                        ).toLowerCase()
+                                    }
                                     onChange={handleChange}
                                     className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-950"
                                 >
@@ -264,7 +566,16 @@ function TaskDetailsModal({
                                 <input
                                     type="date"
                                     name="dueDate"
-                                    value={form.dueDate}
+                                    value={
+                                        form.dueDate
+                                            ? String(
+                                                  form.dueDate
+                                              ).slice(
+                                                  0,
+                                                  10
+                                              )
+                                            : ""
+                                    }
                                     onChange={handleChange}
                                     className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-950"
                                 />
@@ -278,7 +589,11 @@ function TaskDetailsModal({
 
                             <button
                                 type="button"
-                                onClick={() => setIsEditing(false)}
+                                onClick={() =>
+                                    setIsEditing(
+                                        false
+                                    )
+                                }
                                 className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                             >
                                 Cancel
@@ -347,7 +662,9 @@ function TaskDetailsModal({
                                     </div>
 
                                     <p className="mt-2 text-sm font-semibold">
-                                        {getAssigneeName(task.assignee)}
+                                        {getAssigneeName(
+                                            task.assignee
+                                        )}
                                     </p>
 
                                 </div>
@@ -363,7 +680,8 @@ function TaskDetailsModal({
 
                                     <p className="mt-2 text-sm font-semibold">
                                         {getStatusName(
-                                            task.status || currentStatus
+                                            task.status ||
+                                                currentStatus
                                         )}
                                     </p>
 
@@ -379,7 +697,14 @@ function TaskDetailsModal({
                                     </div>
 
                                     <p className="mt-2 text-sm font-semibold">
-                                        {task.dueDate || "No due date"}
+                                        {task.dueDate
+                                            ? String(
+                                                  task.dueDate
+                                              ).slice(
+                                                  0,
+                                                  10
+                                              )
+                                            : "No due date"}
                                     </p>
 
                                 </div>
@@ -403,7 +728,9 @@ function TaskDetailsModal({
 
                             <button
                                 type="button"
-                                onClick={() => setIsEditing(true)}
+                                onClick={() =>
+                                    setIsEditing(true)
+                                }
                                 className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500"
                             >
                                 <Pencil size={16} />

@@ -1,24 +1,31 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+
 import "./index.css";
 
 import App from "./App.jsx";
 
 import { ThemeProvider } from "./context/ThemeContext.jsx";
-import { TaskProvider } from "./context/TaskContext";
+import { AuthProvider } from "./context/AuthContext";
+import { CompanyProvider } from "./context/CompanyContext";
 import { ProjectProvider } from "./context/ProjectContext";
+import { TaskProvider } from "./context/TaskContext";
 import { MemberProvider } from "./context/MemberContext";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <ThemeProvider>
-      <ProjectProvider>
-        <TaskProvider>
+      <AuthProvider>
+        <CompanyProvider>
           <MemberProvider>
-            <App />
+            <ProjectProvider>
+              <TaskProvider>
+                <App />
+              </TaskProvider>
+            </ProjectProvider>
           </MemberProvider>
-        </TaskProvider>
-      </ProjectProvider>
+        </CompanyProvider>
+      </AuthProvider>
     </ThemeProvider>
   </StrictMode>
 );

@@ -1,166 +1,194 @@
-import { createContext, useContext, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+
+import { useAuth } from "./AuthContext";
 
 const TaskContext = createContext();
 
-/*
- * =========================================================
- * INITIAL TASKS
- * =========================================================
- */
-
-const initialTasks = [
-  {
-    id: "WEB-101",
-    projectId: "WEB",
-    title: "Database setup",
-    description: "",
-    priority: "Low",
-    assigneeId: "EMP003",
-    dueDate: "",
-    status: "done",
-  },
-
-  {
-    id: "WEB-102",
-    projectId: "WEB",
-    title: "Create login page",
-    description: "",
-    priority: "High",
-    assigneeId: "EMP001",
-    dueDate: "",
-    status: "todo",
-  },
-
-  {
-    id: "WEB-103",
-    projectId: "WEB",
-    title: "Create navigation bar",
-    description: "",
-    priority: "Medium",
-    assigneeId: "EMP002",
-    dueDate: "",
-    status: "todo",
-  },
-
-  {
-    id: "WEB-104",
-    projectId: "WEB",
-    title: "Project configuration",
-    description: "",
-    priority: "Low",
-    assigneeId: "EMP001",
-    dueDate: "",
-    status: "done",
-  },
-
-  {
-    id: "WEB-105",
-    projectId: "WEB",
-    title: "Authentication API",
-    description: "",
-    priority: "High",
-    assigneeId: "EMP003",
-    dueDate: "",
-    status: "progress",
-  },
-
-  {
-    id: "WEB-106",
-    projectId: "WEB",
-    title: "Dashboard UI",
-    description: "",
-    priority: "Medium",
-    assigneeId: "EMP001",
-    dueDate: "",
-    status: "progress",
-  },
-
-  {
-    id: "WEB-107",
-    projectId: "WEB",
-    title: "Responsive design testing",
-    description: "",
-    priority: "Medium",
-    assigneeId: "EMP002",
-    dueDate: "",
-    status: "review",
-  },
-
-  {
-    id: "WEB-108",
-    projectId: "WEB",
-    title: "Design forgot password page",
-    description: "",
-    priority: "High",
-    assigneeId: "EMP001",
-    dueDate: "",
-    status: "todo",
-  },
-
-  {
-    id: "WEB-109",
-    projectId: "WEB",
-    title: "Create user profile API",
-    description: "",
-    priority: "Medium",
-    assigneeId: "EMP003",
-    dueDate: "",
-    status: "todo",
-  },
-];
-
-/*
- * =========================================================
- * TASK PROVIDER
- * =========================================================
- */
+const API_URL = "http://localhost:8080";
 
 export function TaskProvider({ children }) {
-  const [tasks, setTasks] = useState(initialTasks);
+  const { currentUser } = useAuth();
 
-  /*
-   * =========================================================
-   * ADD TASK
-   * =========================================================
-   */
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const addTask = (taskData, projectId) => {
-    const projectCode = projectId?.toUpperCase();
+  // =========================================================
+  // GET ALL TASKS
+  // =========================================================
 
-    if (!projectCode) {
-      return;
+  const fetchTasks = async () => {
+    try {
+      setLoading(true);
+
+      const response = await fetch(`${API_URL}/tasks`);
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch tasks.");
+      }
+
+      const data = await response.json();
+
+      const taskList = Array.isArray(data) ? data : [];
+
+      setTasks(taskList);
+
+      return taskList;
+    } catch (error) {
+      console.error("Fetch tasks error:", error);
+
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =========================================================
+  // GET TASKS BY PROJECT
+  // =========================================================
+
+  const fetchTasksByProject = async (projectId) => {
+    if (!projectId) {
+      return [];
     }
 
-    setTasks((current) => {
-
-      /*
-       * Find highest task number
-       */
-
-      const projectTasks = current.filter(
-        (task) => task.projectId === projectCode
+    try {
+      const response = await fetch(
+        `${API_URL}/tasks/project/${encodeURIComponent(projectId)}`
       );
 
-      const taskNumbers = projectTasks
-        .map((task) => {
-          const parts = task.id.split("-");
-          return Number(parts[parts.length - 1]);
-        })
-        .filter((number) => !Number.isNaN(number));
+      if (!response.ok) {
+        throw new Error("Failed to fetch project tasks.");
+      }
 
-      const highestNumber =
-        taskNumbers.length > 0
-          ? Math.max(...taskNumbers)
-          : 100;
+      const data = await response.json();
 
-      /*
-       * Create new task
-       */
+      const projectTasks = Array.isArray(data) ? data : [];
 
-      const newTask = {
-        id: `${projectCode}-${highestNumber + 1}`,
+      setTasks((current) => {
+        const otherTasks = current.filter(
+          (task) =>
+            String(task?.project?.id || "") !==
+            String(projectId)
+        );
 
-        projectId: projectCode,
+        return [...otherTasks, ...projectTasks];
+      });
+
+      return projectTasks;
+    } catch (error) {
+      console.error(
+        "Fetch project tasks error:",
+        error
+      );
+
+      return [];
+    }
+  };
+
+  // =========================================================
+  // GET TASK BY ID
+  // =========================================================
+
+  const getTaskById = async (taskId) => {
+    if (!taskId) {
+      return null;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_URL}/tasks/${encodeURIComponent(taskId)}`
+      );
+
+      if (response.status === 404) {
+        return null;
+      }
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch task.");
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error(
+        "Get task by ID error:",
+        error
+      );
+
+      return null;
+    }
+  };
+
+  // =========================================================
+  // CREATE TASK
+  // =========================================================
+
+  const addTask = async (
+    taskData,
+    projectId
+  ) => {
+    try {
+      if (!projectId) {
+        return {
+          success: false,
+          message: "Project ID is required.",
+        };
+      }
+
+      if (!taskData?.title?.trim()) {
+        return {
+          success: false,
+          message: "Task title is required.",
+        };
+      }
+
+      const params = new URLSearchParams();
+
+      params.append(
+        "projectId",
+        projectId
+      );
+
+      // =====================================================
+      // ASSIGNEE
+      // =====================================================
+
+      const assigneeId =
+        taskData?.assigneeId ||
+        taskData?.assignee?.id ||
+        (
+          typeof taskData?.assignee === "string"
+            ? taskData.assignee
+            : null
+        );
+
+      if (
+        assigneeId &&
+        String(assigneeId).toUpperCase() !== "NA"
+      ) {
+        params.append(
+          "assigneeId",
+          assigneeId
+        );
+      }
+
+      // =====================================================
+      // CREATOR
+      // =====================================================
+
+      if (currentUser?.id) {
+        params.append(
+          "createdById",
+          currentUser.id
+        );
+      }
+
+      const taskBody = {
+        id: crypto.randomUUID(),
 
         title: taskData.title.trim(),
 
@@ -170,69 +198,688 @@ export function TaskProvider({ children }) {
         priority:
           taskData.priority || "Medium",
 
-        assigneeId:
-          taskData.assigneeId || null,
-
         dueDate:
-          taskData.dueDate || "",
-
-        status:
-          taskData.status || "todo",
+          taskData.dueDate || null,
       };
 
-      return [
+      const response = await fetch(
+        `${API_URL}/tasks?${params.toString()}`,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+          body: JSON.stringify(taskBody),
+        }
+      );
+
+      const responseText =
+        await response.text();
+
+      if (!response.ok) {
+        let message =
+          "Failed to create task.";
+
+        try {
+          const errorData =
+            JSON.parse(responseText);
+
+          message =
+            errorData?.message ||
+            errorData?.error ||
+            responseText ||
+            message;
+        } catch {
+          if (responseText) {
+            message = responseText;
+          }
+        }
+
+        return {
+          success: false,
+          message,
+        };
+      }
+
+      const createdTask =
+        JSON.parse(responseText);
+
+      setTasks((current) => [
         ...current,
-        newTask,
-      ];
-    });
+        createdTask,
+      ]);
+
+      return {
+        success: true,
+        task: createdTask,
+      };
+    } catch (error) {
+      console.error(
+        "Create task error:",
+        error
+      );
+
+      return {
+        success: false,
+        message:
+          "Unable to connect to the server.",
+      };
+    }
   };
 
-  /*
-   * =========================================================
-   * UPDATE TASK
-   * =========================================================
-   */
+  // =========================================================
+// UPDATE TASK
+// =========================================================
 
-  const updateTask = (updatedTask) => {
+const updateTask = async (updatedTask) => {
+  try {
+    if (!updatedTask?.id) {
+      return {
+        success: false,
+        message: "Task ID is required.",
+      };
+    }
+
+    /*
+     * ---------------------------------------------------------
+     * ASSIGNEE ID
+     * ---------------------------------------------------------
+     *
+     * Support all possible frontend/backend structures:
+     *
+     * task.assignee.id
+     * task.assigneeId
+     * task.assignee
+     */
+
+    let assigneeId = null;
+
+    if (updatedTask?.assignee?.id) {
+      assigneeId = updatedTask.assignee.id;
+    } else if (updatedTask?.assigneeId) {
+      assigneeId = updatedTask.assigneeId;
+    } else if (
+      typeof updatedTask?.assignee === "string" &&
+      updatedTask.assignee !== "NA"
+    ) {
+      assigneeId = updatedTask.assignee;
+    }
+
+    /*
+     * ---------------------------------------------------------
+     * REQUEST BODY
+     * ---------------------------------------------------------
+     *
+     * Send every editable field.
+     */
+
+    const taskBody = {
+      title: updatedTask.title?.trim() || "",
+
+      description:
+        updatedTask.description?.trim() || "",
+
+      priority:
+        updatedTask.priority || "Medium",
+
+      status:
+        updatedTask.status || "TODO",
+
+      dueDate:
+        updatedTask.dueDate || null,
+    };
+
+    /*
+     * ---------------------------------------------------------
+     * ASSIGNEE
+     * ---------------------------------------------------------
+     */
+
+    if (assigneeId) {
+      taskBody.assignee = {
+        id: assigneeId,
+      };
+    }
+
+    console.log(
+      "Updating task:",
+      updatedTask.id
+    );
+
+    console.log(
+      "Update request body:",
+      taskBody
+    );
+
+    /*
+     * ---------------------------------------------------------
+     * API REQUEST
+     * ---------------------------------------------------------
+     */
+
+    const response = await fetch(
+      `${API_URL}/tasks/${encodeURIComponent(
+        updatedTask.id
+      )}`,
+      {
+        method: "PUT",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify(taskBody),
+      }
+    );
+
+    const responseText =
+      await response.text();
+
+    /*
+     * ---------------------------------------------------------
+     * ERROR
+     * ---------------------------------------------------------
+     */
+
+    if (!response.ok) {
+      let message =
+        "Failed to update task.";
+
+      try {
+        const errorData =
+          JSON.parse(responseText);
+
+        message =
+          errorData?.message ||
+          errorData?.error ||
+          responseText ||
+          message;
+      } catch {
+        if (responseText) {
+          message = responseText;
+        }
+      }
+
+      console.error(
+        "Update task failed:",
+        message
+      );
+
+      return {
+        success: false,
+        message,
+      };
+    }
+
+    /*
+     * ---------------------------------------------------------
+     * BACKEND RESPONSE
+     * ---------------------------------------------------------
+     */
+
+    const savedTask =
+      JSON.parse(responseText);
+
+    console.log(
+      "Updated task from backend:",
+      savedTask
+    );
+
+    /*
+     * ---------------------------------------------------------
+     * UPDATE LOCAL TASK STATE
+     * ---------------------------------------------------------
+     */
+
     setTasks((current) =>
       current.map((task) =>
-        task.id === updatedTask.id
-          ? {
-              ...task,
-              ...updatedTask,
-            }
+        String(task.id) ===
+        String(savedTask.id)
+          ? savedTask
           : task
       )
     );
-  };
 
-  /*
-   * =========================================================
-   * DELETE TASK
-   * =========================================================
-   */
-
-  const deleteTask = (taskId) => {
-    setTasks((current) =>
-      current.filter(
-        (task) => task.id !== taskId
-      )
+    return {
+      success: true,
+      task: savedTask,
+    };
+  } catch (error) {
+    console.error(
+      "Update task error:",
+      error
     );
+
+    return {
+      success: false,
+      message:
+        "Unable to connect to the server.",
+    };
+  }
+};
+
+  // =========================================================
+  // DELETE TASK
+  // =========================================================
+
+  const deleteTask = async (
+    taskId
+  ) => {
+    try {
+      if (!taskId) {
+        return {
+          success: false,
+          message: "Task ID is required.",
+        };
+      }
+
+      const response = await fetch(
+        `${API_URL}/tasks/${encodeURIComponent(
+          taskId
+        )}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const responseText =
+        await response.text();
+
+      if (!response.ok) {
+        let message =
+          "Failed to delete task.";
+
+        try {
+          const errorData =
+            JSON.parse(responseText);
+
+          message =
+            errorData?.message ||
+            errorData?.error ||
+            responseText ||
+            message;
+        } catch {
+          if (responseText) {
+            message = responseText;
+          }
+        }
+
+        return {
+          success: false,
+          message,
+        };
+      }
+
+      setTasks((current) =>
+        current.filter(
+          (task) =>
+            task.id !== taskId
+        )
+      );
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      console.error(
+        "Delete task error:",
+        error
+      );
+
+      return {
+        success: false,
+        message:
+          "Unable to connect to the server.",
+      };
+    }
   };
 
-  /*
-   * =========================================================
-   * CONTEXT VALUE
-   * =========================================================
-   */
+  // =========================================================
+  // START TASK
+  // =========================================================
+
+  const startTask = async (
+    taskId,
+    userId
+  ) => {
+    try {
+      const actualUserId =
+        userId || currentUser?.id;
+
+      if (!actualUserId) {
+        return {
+          success: false,
+          message: "User ID is required.",
+        };
+      }
+
+      const response = await fetch(
+        `${API_URL}/tasks/${encodeURIComponent(
+          taskId
+        )}/start?userId=${encodeURIComponent(
+          actualUserId
+        )}`,
+        {
+          method: "PUT",
+        }
+      );
+
+      const responseText =
+        await response.text();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          message:
+            responseText ||
+            "Failed to start task.",
+        };
+      }
+
+      const savedTask =
+        JSON.parse(responseText);
+
+      setTasks((current) =>
+        current.map((task) =>
+          task.id === savedTask.id
+            ? savedTask
+            : task
+        )
+      );
+
+      return {
+        success: true,
+        task: savedTask,
+      };
+    } catch (error) {
+      console.error(
+        "Start task error:",
+        error
+      );
+
+      return {
+        success: false,
+        message:
+          "Unable to connect to the server.",
+      };
+    }
+  };
+
+  // =========================================================
+  // SUBMIT TASK
+  // =========================================================
+
+  const submitTask = async (
+    taskId,
+    userId
+  ) => {
+    try {
+      const actualUserId =
+        userId || currentUser?.id;
+
+      if (!actualUserId) {
+        return {
+          success: false,
+          message: "User ID is required.",
+        };
+      }
+
+      const response = await fetch(
+        `${API_URL}/tasks/${encodeURIComponent(
+          taskId
+        )}/submit?userId=${encodeURIComponent(
+          actualUserId
+        )}`,
+        {
+          method: "PUT",
+        }
+      );
+
+      const responseText =
+        await response.text();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          message:
+            responseText ||
+            "Failed to submit task.",
+        };
+      }
+
+      const savedTask =
+        JSON.parse(responseText);
+
+      setTasks((current) =>
+        current.map((task) =>
+          task.id === savedTask.id
+            ? savedTask
+            : task
+        )
+      );
+
+      return {
+        success: true,
+        task: savedTask,
+      };
+    } catch (error) {
+      console.error(
+        "Submit task error:",
+        error
+      );
+
+      return {
+        success: false,
+        message:
+          "Unable to connect to the server.",
+      };
+    }
+  };
+
+  // =========================================================
+  // ACCEPT TASK
+  // =========================================================
+
+  const acceptTask = async (
+    taskId,
+    reviewerId,
+    comment = ""
+  ) => {
+    try {
+      const actualReviewerId =
+        reviewerId || currentUser?.id;
+
+      if (!actualReviewerId) {
+        return {
+          success: false,
+          message:
+            "Reviewer ID is required.",
+        };
+      }
+
+      const params =
+        new URLSearchParams();
+
+      params.append(
+        "reviewerId",
+        actualReviewerId
+      );
+
+      if (comment?.trim()) {
+        params.append(
+          "comment",
+          comment.trim()
+        );
+      }
+
+      const response = await fetch(
+        `${API_URL}/tasks/${encodeURIComponent(
+          taskId
+        )}/accept?${params.toString()}`,
+        {
+          method: "PUT",
+        }
+      );
+
+      const responseText =
+        await response.text();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          message:
+            responseText ||
+            "Failed to accept task.",
+        };
+      }
+
+      const savedTask =
+        JSON.parse(responseText);
+
+      setTasks((current) =>
+        current.map((task) =>
+          task.id === savedTask.id
+            ? savedTask
+            : task
+        )
+      );
+
+      return {
+        success: true,
+        task: savedTask,
+      };
+    } catch (error) {
+      console.error(
+        "Accept task error:",
+        error
+      );
+
+      return {
+        success: false,
+        message:
+          "Unable to connect to the server.",
+      };
+    }
+  };
+
+  // =========================================================
+  // REJECT TASK
+  // =========================================================
+
+  const rejectTask = async (
+    taskId,
+    reviewerId,
+    comment = ""
+  ) => {
+    try {
+      const actualReviewerId =
+        reviewerId || currentUser?.id;
+
+      if (!actualReviewerId) {
+        return {
+          success: false,
+          message:
+            "Reviewer ID is required.",
+        };
+      }
+
+      const params =
+        new URLSearchParams();
+
+      params.append(
+        "reviewerId",
+        actualReviewerId
+      );
+
+      if (comment?.trim()) {
+        params.append(
+          "comment",
+          comment.trim()
+        );
+      }
+
+      const response = await fetch(
+        `${API_URL}/tasks/${encodeURIComponent(
+          taskId
+        )}/reject?${params.toString()}`,
+        {
+          method: "PUT",
+        }
+      );
+
+      const responseText =
+        await response.text();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          message:
+            responseText ||
+            "Failed to reject task.",
+        };
+      }
+
+      const savedTask =
+        JSON.parse(responseText);
+
+      setTasks((current) =>
+        current.map((task) =>
+          task.id === savedTask.id
+            ? savedTask
+            : task
+        )
+      );
+
+      return {
+        success: true,
+        task: savedTask,
+      };
+    } catch (error) {
+      console.error(
+        "Reject task error:",
+        error
+      );
+
+      return {
+        success: false,
+        message:
+          "Unable to connect to the server.",
+      };
+    }
+  };
+
+  // =========================================================
+  // INITIAL LOAD
+  // =========================================================
+
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  // =========================================================
+  // CONTEXT
+  // =========================================================
 
   return (
     <TaskContext.Provider
       value={{
         tasks,
+        loading,
+
+        fetchTasks,
+        fetchTasksByProject,
+        getTaskById,
+
         addTask,
         updateTask,
         deleteTask,
+
+        startTask,
+        submitTask,
+        acceptTask,
+        rejectTask,
       }}
     >
       {children}
@@ -240,11 +887,9 @@ export function TaskProvider({ children }) {
   );
 }
 
-/*
- * =========================================================
- * USE TASKS HOOK
- * =========================================================
- */
+// =========================================================
+// USE TASKS
+// =========================================================
 
 export function useTasks() {
   return useContext(TaskContext);

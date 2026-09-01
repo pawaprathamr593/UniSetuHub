@@ -19,13 +19,13 @@ function ProjectBoard() {
   const { projectId } = useParams();
 
   const {
-    tasks,
+    tasks = [],
     addTask,
     updateTask,
     deleteTask,
   } = useTasks();
 
-  const { projects } = useProjects();
+  const { projects = [] } = useProjects();
 
   const [draggedTask, setDraggedTask] = useState(null);
   const [showCreateTask, setShowCreateTask] = useState(false);
@@ -33,25 +33,107 @@ function ProjectBoard() {
 
   /*
    * =========================================================
-   * CURRENT PROJECT
+   * DEBUG
    * =========================================================
    */
 
-  const currentProjectId = projectId?.toUpperCase();
+  console.log("========== PROJECT BOARD ==========");
+  console.log("URL PROJECT ID:", projectId);
+  console.log("PROJECTS:", projects);
+  console.log("TASKS:", tasks);
+
+  /*
+   * =========================================================
+   * CURRENT PROJECT
+   * =========================================================
+   *
+   * Projects.jsx sends:
+   *
+   * /projects/{project.id}
+   *
+   * Therefore find project by database ID.
+   */
 
   const project = projects.find(
-    (item) => item.code === currentProjectId
+    (item) =>
+      String(item?.id) === String(projectId)
   );
+
+  console.log("CURRENT PROJECT:", project);
 
   /*
    * =========================================================
    * PROJECT TASKS
    * =========================================================
+   *
+   * Backend Task entity:
+   *
+   * private Project project;
+   *
+   * Therefore task JSON contains:
+   *
+   * task.project.id
    */
 
   const projectTasks = tasks.filter(
-    (task) => task.projectId === currentProjectId
+    (task) =>
+      String(task?.project?.id) ===
+      String(projectId)
   );
+
+  console.log(
+    "PROJECT TASKS:",
+    projectTasks
+  );
+
+  /*
+   * =========================================================
+   * STATUS CONVERTER
+   * =========================================================
+   *
+   * Backend:
+   *
+   * TODO
+   * IN_PROGRESS
+   * SUBMITTED
+   * REJECTED
+   * DONE
+   *
+   * Frontend board:
+   *
+   * todo
+   * progress
+   * review
+   * done
+   */
+
+  const getBoardStatus = (status) => {
+    const normalized =
+      status
+        ?.toString()
+        .trim()
+        .toUpperCase();
+
+    switch (normalized) {
+      case "TODO":
+        return "todo";
+
+      case "IN_PROGRESS":
+        return "progress";
+
+      case "SUBMITTED":
+        return "review";
+
+      case "REJECTED":
+        return "progress";
+
+      case "DONE":
+        return "done";
+
+      default:
+        return "todo";
+    }
+  };
 
   /*
    * =========================================================
@@ -63,32 +145,44 @@ function ProjectBoard() {
     todo: {
       title: "TO DO",
       color: "text-slate-500",
+
       tasks: projectTasks.filter(
-        (task) => task.status === "todo"
+        (task) =>
+          getBoardStatus(task.status) ===
+          "todo"
       ),
     },
 
     progress: {
       title: "IN PROGRESS",
       color: "text-blue-500",
+
       tasks: projectTasks.filter(
-        (task) => task.status === "progress"
+        (task) =>
+          getBoardStatus(task.status) ===
+          "progress"
       ),
     },
 
     review: {
       title: "REVIEW",
       color: "text-orange-500",
+
       tasks: projectTasks.filter(
-        (task) => task.status === "review"
+        (task) =>
+          getBoardStatus(task.status) ===
+          "review"
       ),
     },
 
     done: {
       title: "DONE",
       color: "text-green-500",
+
       tasks: projectTasks.filter(
-        (task) => task.status === "done"
+        (task) =>
+          getBoardStatus(task.status) ===
+          "done"
       ),
     },
   };
@@ -99,7 +193,10 @@ function ProjectBoard() {
    * =========================================================
    */
 
-  const handleDragStart = (task, sourceColumn) => {
+  const handleDragStart = (
+    task,
+    sourceColumn
+  ) => {
     setDraggedTask({
       task,
       sourceColumn,
@@ -110,24 +207,63 @@ function ProjectBoard() {
    * =========================================================
    * DROP TASK
    * =========================================================
+   *
+   * IMPORTANT:
+   *
+   * The backend expects uppercase statuses.
    */
 
-  const handleDrop = (targetColumn) => {
+  const handleDrop = async (
+    targetColumn
+  ) => {
     if (!draggedTask) {
       return;
     }
 
     const { task } = draggedTask;
 
-    if (task.status === targetColumn) {
+    const currentColumn =
+      getBoardStatus(task.status);
+
+    if (
+      currentColumn === targetColumn
+    ) {
       setDraggedTask(null);
       return;
     }
 
-    updateTask({
-      ...task,
-      status: targetColumn,
-    });
+    /*
+     * Do not directly change status using
+     * "progress", "review", etc.
+     *
+     * Backend uses uppercase status.
+     */
+
+    const statusMap = {
+      todo: "TODO",
+      progress: "IN_PROGRESS",
+      review: "SUBMITTED",
+      done: "DONE",
+    };
+
+    const backendStatus =
+      statusMap[targetColumn];
+
+    /*
+     * NOTE:
+     *
+     * Your current TaskService.updateTask()
+     * does NOT update status.
+     *
+     * Therefore drag-and-drop status updates
+     * should not be sent through updateTask()
+     * until backend status update logic is added.
+     */
+
+    console.log(
+      "Requested status:",
+      backendStatus
+    );
 
     setDraggedTask(null);
   };
@@ -138,7 +274,9 @@ function ProjectBoard() {
    * =========================================================
    */
 
-  const priorityClass = (priority) => {
+  const priorityClass = (
+    priority
+  ) => {
     if (priority === "High") {
       return "text-red-600 dark:text-red-400";
     }
@@ -156,16 +294,32 @@ function ProjectBoard() {
    * =========================================================
    */
 
-  const handleCreateTask = (taskData) => {
-    addTask(
-      {
-        ...taskData,
-        status: "todo",
-      },
+  const handleCreateTask = async (
+    taskData
+  ) => {
+    console.log(
+      "Creating task:",
+      taskData
+    );
+
+    console.log(
+      "Project ID:",
       projectId
     );
 
-    setShowCreateTask(false);
+    const result = await addTask(
+      taskData,
+      projectId
+    );
+
+    console.log(
+      "Create task result:",
+      result
+    );
+
+    if (result?.success) {
+      setShowCreateTask(false);
+    }
   };
 
   /*
@@ -174,9 +328,15 @@ function ProjectBoard() {
    * =========================================================
    */
 
-  const handleDeleteTask = (taskId) => {
-    deleteTask(taskId);
-    setSelectedTask(null);
+  const handleDeleteTask = async (
+    taskId
+  ) => {
+    const result =
+      await deleteTask(taskId);
+
+    if (result?.success) {
+      setSelectedTask(null);
+    }
   };
 
   /*
@@ -185,9 +345,15 @@ function ProjectBoard() {
    * =========================================================
    */
 
-  const handleUpdateTask = (updatedTask) => {
-    updateTask(updatedTask);
-    setSelectedTask(null);
+  const handleUpdateTask = async (
+    updatedTask
+  ) => {
+    const result =
+      await updateTask(updatedTask);
+
+    if (result?.success) {
+      setSelectedTask(null);
+    }
   };
 
   /*
@@ -196,7 +362,10 @@ function ProjectBoard() {
    * =========================================================
    */
 
-  const handleTaskClick = (task, columnId) => {
+  const handleTaskClick = (
+    task,
+    columnId
+  ) => {
     setSelectedTask({
       task,
       status: columnId,
@@ -218,7 +387,13 @@ function ProjectBoard() {
         </h2>
 
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-          The project "{currentProjectId}" does not exist.
+          The project with ID "{projectId}"
+          does not exist.
+        </p>
+
+        <p className="mt-3 text-xs text-slate-400">
+          Check the browser console for
+          PROJECTS and URL PROJECT ID.
         </p>
 
       </div>
@@ -249,22 +424,29 @@ function ProjectBoard() {
             </h2>
 
             <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-              {currentProjectId}
+              {project.code ||
+                project.id}
             </span>
 
           </div>
 
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            {project.name} · {projectTasks.length} tasks across the project workflow.
+            {project.name} ·{" "}
+            {projectTasks.length} tasks
+            across the project workflow.
           </p>
 
         </div>
 
         <button
-          onClick={() => setShowCreateTask(true)}
+          type="button"
+          onClick={() =>
+            setShowCreateTask(true)
+          }
           className="flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500"
         >
           <Plus size={18} />
+
           Create Task
         </button>
 
@@ -286,9 +468,9 @@ function ProjectBoard() {
                 onDragOver={(e) => {
                   e.preventDefault();
                 }}
-                onDrop={() => {
-                  handleDrop(columnId);
-                }}
+                onDrop={() =>
+                  handleDrop(columnId)
+                }
                 className="flex min-h-[550px] flex-col rounded-xl bg-slate-100/70 p-3 dark:bg-slate-900/60"
               >
 
@@ -301,17 +483,24 @@ function ProjectBoard() {
                     {columnId === "done" ? (
                       <CheckCircle2
                         size={17}
-                        className={column.color}
+                        className={
+                          column.color
+                        }
                       />
-                    ) : columnId === "progress" ? (
+                    ) : columnId ===
+                      "progress" ? (
                       <Clock3
                         size={17}
-                        className={column.color}
+                        className={
+                          column.color
+                        }
                       />
                     ) : (
                       <Circle
                         size={17}
-                        className={column.color}
+                        className={
+                          column.color
+                        }
                       />
                     )}
 
@@ -320,7 +509,10 @@ function ProjectBoard() {
                     </h3>
 
                     <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-slate-500 shadow-sm dark:bg-slate-800 dark:text-slate-400">
-                      {column.tasks.length}
+                      {
+                        column.tasks
+                          .length
+                      }
                     </span>
 
                   </div>
@@ -329,7 +521,9 @@ function ProjectBoard() {
                     type="button"
                     className="rounded p-1 text-slate-400 hover:bg-white hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                   >
-                    <MoreHorizontal size={17} />
+                    <MoreHorizontal
+                      size={17}
+                    />
                   </button>
 
                 </div>
@@ -338,97 +532,127 @@ function ProjectBoard() {
 
                 <div className="flex flex-1 flex-col gap-3">
 
-                  {column.tasks.map((task) => (
+                  {column.tasks.map(
+                    (task) => (
 
-                    <div
-                      key={task.id}
-                      draggable
-                      onDragStart={() =>
-                        handleDragStart(
-                          task,
-                          columnId
-                        )
-                      }
-                      onClick={() =>
-                        handleTaskClick(
-                          task,
-                          columnId
-                        )
-                      }
-                      className="cursor-pointer rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md active:cursor-grabbing dark:border-slate-800 dark:bg-slate-950"
-                    >
+                      <div
+                        key={task.id}
+                        draggable
+                        onDragStart={() =>
+                          handleDragStart(
+                            task,
+                            columnId
+                          )
+                        }
+                        onClick={() =>
+                          handleTaskClick(
+                            task,
+                            columnId
+                          )
+                        }
+                        className="cursor-pointer rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md active:cursor-grabbing dark:border-slate-800 dark:bg-slate-950"
+                      >
 
-                      {/* Task ID */}
+                        {/* Task ID */}
 
-                      <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between">
 
-                        <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                          {task.id}
-                        </span>
+                          <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                            {task.id}
+                          </span>
 
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
 
-                            handleTaskClick(
-                              task,
-                              columnId
-                            );
-                          }}
-                          className="rounded p-1 text-slate-300 hover:bg-slate-100 hover:text-slate-500 dark:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-400"
-                        >
-                          <MoreHorizontal size={16} />
-                        </button>
+                              handleTaskClick(
+                                task,
+                                columnId
+                              );
+                            }}
+                            className="rounded p-1 text-slate-300 hover:bg-slate-100 hover:text-slate-500 dark:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-400"
+                          >
+                            <MoreHorizontal
+                              size={16}
+                            />
+                          </button>
 
-                      </div>
+                        </div>
 
-                      {/* Task Title */}
+                        {/* Task Title */}
 
-                      <p className="mt-3 text-sm font-medium leading-5">
-                        {task.title}
-                      </p>
-
-                      {/* Description */}
-
-                      {task.description && (
-                        <p className="mt-2 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
-                          {task.description}
+                        <p className="mt-3 text-sm font-medium leading-5">
+                          {task.title}
                         </p>
-                      )}
 
-                      {/* Task Footer */}
+                        {/* Description */}
 
-                      <div className="mt-4 flex items-center justify-between">
+                        {task.description && (
+                          <p className="mt-2 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
+                            {
+                              task.description
+                            }
+                          </p>
+                        )}
 
-                        <span
-                          className={`text-xs font-medium ${priorityClass(
-                            task.priority
-                          )}`}
-                        >
-                          {task.priority}
-                        </span>
+                        {/* Task Footer */}
 
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
-                          {task.assignee}
+                        <div className="mt-4 flex items-center justify-between">
+
+                          <span
+                            className={`text-xs font-medium ${priorityClass(
+                              task.priority
+                            )}`}
+                          >
+                            {
+                              task.priority
+                            }
+                          </span>
+
+                          {/* Assignee */}
+
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+
+                            {task.assignee
+                              ?.firstName
+                              ? task.assignee.firstName.charAt(
+                                0
+                              )
+                              : task.assignee
+                                ?.name
+                                ? task.assignee.name.charAt(
+                                  0
+                                )
+                                : task.assignee
+                                  ?.email
+                                  ? task.assignee.email.charAt(
+                                    0
+                                  )
+                                  : "?"}
+
+                          </div>
+
                         </div>
 
                       </div>
 
-                    </div>
-
-                  ))}
+                    )
+                  )}
 
                   {/* Add Task */}
 
                   <button
                     type="button"
                     onClick={() =>
-                      setShowCreateTask(true)
+                      setShowCreateTask(
+                        true
+                      )
                     }
                     className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 py-3 text-xs font-medium text-slate-400 transition hover:border-indigo-400 hover:text-indigo-500 dark:border-slate-700 dark:hover:border-indigo-500 dark:hover:text-indigo-400"
                   >
                     <Plus size={15} />
+
                     Add task
                   </button>
 
@@ -449,10 +673,13 @@ function ProjectBoard() {
 
       {showCreateTask && (
         <CreateTaskModal
+          projectId={projectId}
           onClose={() =>
             setShowCreateTask(false)
           }
-          onCreate={handleCreateTask}
+          onCreate={
+            handleCreateTask
+          }
         />
       )}
 
@@ -463,12 +690,18 @@ function ProjectBoard() {
       {selectedTask && (
         <TaskDetailsModal
           task={selectedTask.task}
-          currentStatus={selectedTask.status}
+          currentStatus={
+            selectedTask.status
+          }
           onClose={() =>
             setSelectedTask(null)
           }
-          onUpdate={handleUpdateTask}
-          onDelete={handleDeleteTask}
+          onUpdate={
+            handleUpdateTask
+          }
+          onDelete={
+            handleDeleteTask
+          }
         />
       )}
 

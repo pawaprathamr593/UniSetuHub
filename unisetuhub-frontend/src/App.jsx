@@ -15,6 +15,13 @@ import HowItWorks from "./pages/landing/HowItWorks";
 import About from "./pages/landing/About";
 
 // ===============================
+// ROUTE PROTECTION
+// ===============================
+import ProtectedRoute from "./routes/ProtectedRoute";
+import RoleRoute from "./routes/RoleRoute";
+import ProjectAccessRoute from "./routes/ProjectAccessRoute";
+
+// ===============================
 // LAYOUTS
 // ===============================
 import DashboardLayout from "./layouts/DashboardLayout";
@@ -55,37 +62,31 @@ function App() {
 
         <Route element={<PublicLayout />}>
 
-          {/* Home */}
           <Route
             path="/"
             element={<Home />}
           />
 
-          {/* Features */}
           <Route
             path="/features"
             element={<Features />}
           />
 
-          {/* How It Works */}
           <Route
             path="/how-it-works"
             element={<HowItWorks />}
           />
 
-          {/* About */}
           <Route
             path="/about"
             element={<About />}
           />
 
-          {/* Login */}
           <Route
             path="/login"
             element={<Login />}
           />
 
-          {/* Register */}
           <Route
             path="/register-company"
             element={<RegisterCompany />}
@@ -95,105 +96,135 @@ function App() {
 
 
         {/* =================================================
-            DASHBOARD LAYOUT
+            PROTECTED APPLICATION
         ================================================= */}
 
-        <Route element={<DashboardLayout />}>
+        <Route element={<ProtectedRoute />}>
 
-          {/* Dashboard */}
+          <Route element={<DashboardLayout />}>
 
-          <Route
-            path="/dashboard"
-            element={<Dashboard />}
-          />
-
-
-          {/* =================================================
-              PROJECTS
-          ================================================= */}
-
-          <Route
-            path="/projects"
-            element={<Projects />}
-          />
-
-          <Route
-            path="/projects/create"
-            element={<CreateProject />}
-          />
-
-
-          {/* =================================================
-              PROJECT LAYOUT
-          ================================================= */}
-
-          <Route
-            path="/projects/:projectId"
-            element={<ProjectLayout />}
-          >
-
-            {/* Overview */}
+            {/* =================================================
+                COMMON DASHBOARD
+            ================================================= */}
 
             <Route
-              index
-              element={<ProjectOverview />}
-            />
-
-            <Route
-              path="board"
-              element={<ProjectBoard />}
-            />
-
-            {/* Tasks */}
-
-            <Route
-              path="tasks"
-              element={<ProjectTasks />}
-            />
-
-            {/* Backlog */}
-
-            <Route
-              path="backlog"
-              element={<ProjectBacklog />}
-            />
-
-            {/* Members */}
-
-            <Route
-              path="members"
-              element={<ProjectMembers />}
+              path="/dashboard"
+              element={<Dashboard />}
             />
 
 
+            {/* =================================================
+                PROJECTS
+            ================================================= */}
+
+            <Route
+              path="/projects"
+              element={<Projects />}
+            />
+
+
+            {/* =================================================
+                COMPANY HEAD ONLY
+            ================================================= */}
+
+            <Route
+              element={
+                <RoleRoute
+                  allowedRoles={[
+                    "COMPANY_HEAD",
+                  ]}
+                />
+              }
+            >
+
+              <Route
+                path="/projects/create"
+                element={<CreateProject />}
+              />
+
+              <Route
+                path="/employees"
+                element={<Employees />}
+              />
+
+              <Route
+                path="/teams"
+                element={<Teams />}
+              />
+
+            </Route>
+
+
+            {/* =================================================
+                COMPANY HEAD + PROJECT LEAD
+            ================================================= */}
+
+            <Route
+              element={
+                <RoleRoute
+                  allowedRoles={[
+                    "COMPANY_HEAD",
+                    "PROJECT_LEAD",
+                  ]}
+                />
+              }
+            >
+
+              <Route
+                path="/tasks"
+                element={<Tasks />}
+              />
+
+            </Route>
+
+
+            {/* =================================================
+                PROJECT ROUTES
+            ================================================= */}
+
+           
+              <Route
+                path="/projects/:projectId"
+                element={<ProjectLayout />}
+              >
+                <Route
+                  index
+                  element={<ProjectOverview />}
+                />
+
+                <Route
+                  path="board"
+                  element={<ProjectBoard />}
+                />
+
+                <Route
+                  path="tasks"
+                  element={<ProjectTasks />}
+                />
+
+                <Route
+                  path="backlog"
+                  element={<ProjectBacklog />}
+                />
+
+                <Route
+                  path="members"
+                  element={<ProjectMembers />}
+                />
+              </Route>
+            
+
+
+            {/* =================================================
+                SETTINGS
+            ================================================= */}
+
+            <Route
+              path="/settings"
+              element={<Settings />}
+            />
 
           </Route>
-
-
-
-          {/* =================================================
-              OTHER WORKSPACE PAGES
-          ================================================= */}
-
-          <Route
-            path="/tasks"
-            element={<Tasks />}
-          />
-
-          <Route
-            path="/employees"
-            element={<Employees />}
-          />
-
-          <Route
-            path="/teams"
-            element={<Teams />}
-          />
-
-          <Route
-            path="/settings"
-            element={<Settings />}
-          />
 
         </Route>
 

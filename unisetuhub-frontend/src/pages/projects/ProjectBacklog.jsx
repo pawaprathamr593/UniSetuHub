@@ -1,3 +1,4 @@
+
 import {
     Circle,
     Clock3,
@@ -26,28 +27,55 @@ function ProjectBacklog() {
     const [search, setSearch] = useState("");
     const [priorityFilter, setPriorityFilter] = useState("all");
 
-    const [showCreateTask, setShowCreateTask] = useState(false);
-    const [selectedTask, setSelectedTask] = useState(null);
+    const [showCreateTask, setShowCreateTask] =
+        useState(false);
+
+    const [selectedTask, setSelectedTask] =
+        useState(null);
+
+    /*
+     * =========================================================
+     * NORMALIZED PROJECT ID
+     * =========================================================
+     */
+
+    const normalizedProjectId =
+        projectId?.toUpperCase();
 
     /*
      * =========================================================
      * CURRENT PROJECT BACKLOG
      * =========================================================
      *
-     * Only tasks belonging to the current project
-     * AND having "todo" status are shown.
+     * Supports both possible backend formats:
+     *
+     * task.project.id
+     *
+     * OR
+     *
+     * task.projectId
+     *
+     * Only "todo" tasks are shown.
      */
-    const projectTasks = tasks.filter(
-        (task) =>
-            task.projectId === projectId?.toUpperCase() &&
+
+    const projectTasks = tasks.filter((task) => {
+        const taskProjectId =
+            task.project?.id ||
+            task.projectId;
+
+        return (
+            String(taskProjectId).toUpperCase() ===
+                normalizedProjectId &&
             task.status === "todo"
-    );
+        );
+    });
 
     /*
      * =========================================================
      * PRIORITY STYLE
      * =========================================================
      */
+
     const priorityClass = (priority) => {
         if (priority === "High") {
             return "text-red-600 dark:text-red-400";
@@ -65,19 +93,36 @@ function ProjectBacklog() {
      * SEARCH + PRIORITY FILTER
      * =========================================================
      */
+
     const filteredTasks = projectTasks.filter((task) => {
-        const searchText = search.toLowerCase();
+        const searchText =
+            search.toLowerCase().trim();
+
+        const taskAssignee =
+            task.assignee?.name ||
+            task.assignee?.firstName ||
+            task.assignee ||
+            "";
 
         const matchesSearch =
-            task.id?.toLowerCase().includes(searchText) ||
-            task.title?.toLowerCase().includes(searchText) ||
-            task.assignee?.toLowerCase().includes(searchText);
+            String(task.id || "")
+                .toLowerCase()
+                .includes(searchText) ||
+            String(task.title || "")
+                .toLowerCase()
+                .includes(searchText) ||
+            String(taskAssignee)
+                .toLowerCase()
+                .includes(searchText);
 
         const matchesPriority =
             priorityFilter === "all" ||
             task.priority === priorityFilter;
 
-        return matchesSearch && matchesPriority;
+        return (
+            matchesSearch &&
+            matchesPriority
+        );
     });
 
     /*
@@ -85,16 +130,21 @@ function ProjectBacklog() {
      * CREATE TASK
      * =========================================================
      */
-    const handleCreateTask = (taskData) => {
-        addTask(
+
+    const handleCreateTask = async (taskData) => {
+        const result = await addTask(
             {
                 ...taskData,
                 status: "todo",
             },
-            projectId
+            normalizedProjectId
         );
 
-        setShowCreateTask(false);
+        if (result?.success) {
+            setShowCreateTask(false);
+        }
+
+        return result;
     };
 
     /*
@@ -102,9 +152,18 @@ function ProjectBacklog() {
      * UPDATE TASK
      * =========================================================
      */
-    const handleUpdateTask = (updatedTask) => {
-        updateTask(updatedTask);
-        setSelectedTask(null);
+
+    const handleUpdateTask = async (
+        updatedTask
+    ) => {
+        const result =
+            await updateTask(updatedTask);
+
+        if (result?.success) {
+            setSelectedTask(null);
+        }
+
+        return result;
     };
 
     /*
@@ -112,9 +171,78 @@ function ProjectBacklog() {
      * DELETE TASK
      * =========================================================
      */
-    const handleDeleteTask = (taskId) => {
-        deleteTask(taskId);
-        setSelectedTask(null);
+
+    const handleDeleteTask = async (
+        taskId
+    ) => {
+        const result =
+            await deleteTask(taskId);
+
+        if (result?.success) {
+            setSelectedTask(null);
+        }
+
+        return result;
+    };
+
+    /*
+     * =========================================================
+     * GET ASSIGNEE DISPLAY NAME
+     * =========================================================
+     */
+
+    const getAssigneeName = (task) => {
+        if (!task.assignee) {
+            return "—";
+        }
+
+        if (task.assignee.name) {
+            return task.assignee.name;
+        }
+
+        if (
+            task.assignee.firstName ||
+            task.assignee.surname
+        ) {
+            return `${task.assignee.firstName || ""} ${
+                task.assignee.surname || ""
+            }`.trim();
+        }
+
+        if (typeof task.assignee === "string") {
+            return task.assignee;
+        }
+
+        return "—";
+    };
+
+    /*
+     * =========================================================
+     * GET ASSIGNEE INITIALS
+     * =========================================================
+     */
+
+    const getAssigneeInitials = (task) => {
+        const name =
+            getAssigneeName(task);
+
+        if (!name || name === "—") {
+            return "?";
+        }
+
+        const parts =
+            name.trim().split(/\s+/);
+
+        if (parts.length >= 2) {
+            return (
+                parts[0][0] +
+                parts[parts.length - 1][0]
+            ).toUpperCase();
+        }
+
+        return name
+            .substring(0, 2)
+            .toUpperCase();
     };
 
     return (
@@ -135,7 +263,7 @@ function ProjectBacklog() {
                         </h1>
 
                         <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                            {projectId?.toUpperCase()}
+                            {normalizedProjectId}
                         </span>
 
                     </div>
@@ -147,7 +275,10 @@ function ProjectBacklog() {
                 </div>
 
                 <button
-                    onClick={() => setShowCreateTask(true)}
+                    type="button"
+                    onClick={() =>
+                        setShowCreateTask(true)
+                    }
                     className="flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500"
                 >
                     <Plus size={18} />
@@ -162,7 +293,7 @@ function ProjectBacklog() {
 
             <div className="grid gap-4 sm:grid-cols-3">
 
-                {/* Backlog Tasks */}
+                {/* BACKLOG TASKS */}
 
                 <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
 
@@ -193,7 +324,7 @@ function ProjectBacklog() {
 
                 </div>
 
-                {/* High Priority */}
+                {/* HIGH PRIORITY */}
 
                 <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
 
@@ -219,7 +350,8 @@ function ProjectBacklog() {
                                 {
                                     projectTasks.filter(
                                         (task) =>
-                                            task.priority === "High"
+                                            task.priority ===
+                                            "High"
                                     ).length
                                 }
 
@@ -231,7 +363,7 @@ function ProjectBacklog() {
 
                 </div>
 
-                {/* Showing */}
+                {/* SHOWING */}
 
                 <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
 
@@ -272,7 +404,7 @@ function ProjectBacklog() {
 
                 <div className="flex flex-col gap-3 sm:flex-row">
 
-                    {/* Search */}
+                    {/* SEARCH */}
 
                     <div className="relative flex-1">
 
@@ -282,9 +414,12 @@ function ProjectBacklog() {
                         />
 
                         <input
+                            type="text"
                             value={search}
                             onChange={(e) =>
-                                setSearch(e.target.value)
+                                setSearch(
+                                    e.target.value
+                                )
                             }
                             placeholder="Search backlog..."
                             className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900"
@@ -292,12 +427,14 @@ function ProjectBacklog() {
 
                     </div>
 
-                    {/* Priority */}
+                    {/* PRIORITY */}
 
                     <select
                         value={priorityFilter}
                         onChange={(e) =>
-                            setPriorityFilter(e.target.value)
+                            setPriorityFilter(
+                                e.target.value
+                            )
                         }
                         className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-900"
                     >
@@ -330,6 +467,8 @@ function ProjectBacklog() {
 
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
 
+                {/* LIST HEADER */}
+
                 <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
 
                     <h2 className="font-semibold">
@@ -342,93 +481,115 @@ function ProjectBacklog() {
 
                 </div>
 
+                {/* TASKS */}
+
                 <div>
 
                     {filteredTasks.length > 0 ? (
 
-                        filteredTasks.map((task) => (
+                        filteredTasks.map(
+                            (task) => (
 
-                            <div
-                                key={task.id}
-                                onClick={() =>
-                                    setSelectedTask({
-                                        task,
-                                        status: task.status,
-                                    })
-                                }
-                                className="flex cursor-pointer items-center justify-between gap-4 border-b border-slate-100 px-5 py-4 transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900/50"
-                            >
-
-                                {/* Task Information */}
-
-                                <div className="flex min-w-0 items-center gap-4">
-
-                                    <Circle
-                                        size={18}
-                                        className="shrink-0 text-slate-400"
-                                    />
-
-                                    <div className="min-w-0">
-
-                                        <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                                            {task.id}
-                                        </p>
-
-                                        <p className="mt-1 truncate text-sm font-medium">
-                                            {task.title}
-                                        </p>
-
-                                    </div>
-
-                                </div>
-
-                                {/* Task Actions */}
-
-                                <div className="flex shrink-0 items-center gap-6">
-
-                                    {/* Priority */}
-
-                                    <span
-                                        className={`hidden text-sm font-medium sm:block ${priorityClass(
-                                            task.priority
-                                        )}`}
-                                    >
-                                        {task.priority}
-                                    </span>
-
-                                    {/* Assignee */}
-
-                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
-                                        {task.assignee}
-                                    </div>
-
-                                    {/* More */}
-
-                                    <button
-                                        onClick={(e) => {
-
-                                            e.stopPropagation();
-
-                                            setSelectedTask({
+                                <div
+                                    key={task.id}
+                                    onClick={() =>
+                                        setSelectedTask(
+                                            {
                                                 task,
-                                                status: task.status,
-                                            });
+                                                status:
+                                                    task.status,
+                                            }
+                                        )
+                                    }
+                                    className="flex cursor-pointer items-center justify-between gap-4 border-b border-slate-100 px-5 py-4 transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900/50"
+                                >
 
-                                        }}
-                                        className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-white"
-                                    >
+                                    {/* =================================================
+                                        TASK INFORMATION
+                                    ================================================= */}
 
-                                        <MoreHorizontal
+                                    <div className="flex min-w-0 items-center gap-4">
+
+                                        <Circle
                                             size={18}
+                                            className="shrink-0 text-slate-400"
                                         />
 
-                                    </button>
+                                        <div className="min-w-0">
+
+                                            <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                                                {task.id}
+                                            </p>
+
+                                            <p className="mt-1 truncate text-sm font-medium">
+                                                {task.title}
+                                            </p>
+
+                                        </div>
+
+                                    </div>
+
+                                    {/* =================================================
+                                        TASK ACTIONS
+                                    ================================================= */}
+
+                                    <div className="flex shrink-0 items-center gap-6">
+
+                                        {/* PRIORITY */}
+
+                                        <span
+                                            className={`hidden text-sm font-medium sm:block ${priorityClass(
+                                                task.priority
+                                            )}`}
+                                        >
+                                            {task.priority}
+                                        </span>
+
+                                        {/* ASSIGNEE */}
+
+                                        <div
+                                            title={getAssigneeName(
+                                                task
+                                            )}
+                                            className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"
+                                        >
+                                            {getAssigneeInitials(
+                                                task
+                                            )}
+                                        </div>
+
+                                        {/* MORE */}
+
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+
+                                                e.stopPropagation();
+
+                                                setSelectedTask(
+                                                    {
+                                                        task,
+                                                        status:
+                                                            task.status,
+                                                    }
+                                                );
+
+                                            }}
+                                            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-white"
+                                        >
+
+                                            <MoreHorizontal
+                                                size={18}
+                                            />
+
+                                        </button>
+
+                                    </div>
 
                                 </div>
 
-                            </div>
-
-                        ))
+                            )
+                        )
 
                     ) : (
 
@@ -455,12 +616,19 @@ function ProjectBacklog() {
             ================================================= */}
 
             {showCreateTask && (
+
                 <CreateTaskModal
+                    projectId={
+                        normalizedProjectId
+                    }
                     onClose={() =>
                         setShowCreateTask(false)
                     }
-                    onCreate={handleCreateTask}
+                    onCreate={
+                        handleCreateTask
+                    }
                 />
+
             )}
 
             {/* =================================================
@@ -468,15 +636,25 @@ function ProjectBacklog() {
             ================================================= */}
 
             {selectedTask && (
+
                 <TaskDetailsModal
-                    task={selectedTask.task}
-                    currentStatus={selectedTask.status}
+                    task={
+                        selectedTask.task
+                    }
+                    currentStatus={
+                        selectedTask.status
+                    }
                     onClose={() =>
                         setSelectedTask(null)
                     }
-                    onUpdate={handleUpdateTask}
-                    onDelete={handleDeleteTask}
+                    onUpdate={
+                        handleUpdateTask
+                    }
+                    onDelete={
+                        handleDeleteTask
+                    }
                 />
+
             )}
 
         </div>
@@ -484,3 +662,4 @@ function ProjectBacklog() {
 }
 
 export default ProjectBacklog;
+

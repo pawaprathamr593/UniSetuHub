@@ -1,169 +1,45 @@
-import { createContext, useContext, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+
+import { useAuth } from "./AuthContext";
 
 const MemberContext = createContext();
 
-/*
- * =========================================================
- * INITIAL MEMBERS
- * =========================================================
- */
-
-const initialMembers = [
-  {
-    id: "EMP001",
-    initials: "PP",
-    name: "Pratham Pawar",
-    email: "pratham@example.com",
-    role: "Project Admin",
-    projectId: "WEB",
-  },
-
-  {
-    id: "EMP002",
-    initials: "AS",
-    name: "Amit Sharma",
-    email: "amit@example.com",
-    role: "Frontend Developer",
-    projectId: "WEB",
-  },
-
-  {
-    id: "EMP003",
-    initials: "RK",
-    name: "Rahul Kumar",
-    email: "rahul@example.com",
-    role: "Backend Developer",
-    projectId: "WEB",
-  },
-
-  {
-    id: "EMP004",
-    initials: "SK",
-    name: "Sneha Kulkarni",
-    email: "sneha@example.com",
-    role: "UI/UX Designer",
-    projectId: "WEB",
-  },
-];
-
-/*
- * =========================================================
- * MEMBER PROVIDER
- * =========================================================
- */
-
 export function MemberProvider({ children }) {
-  const [members, setMembers] = useState(initialMembers);
+  const { users = [], fetchUsers } = useAuth();
+
+  const [members, setMembers] = useState([]);
 
   /*
    * =========================================================
-   * ADD MEMBER
+   * LOAD BACKEND USERS
    * =========================================================
    */
 
-  const addMember = (memberData, projectId) => {
-    const nameParts = memberData.name
-      .trim()
-      .split(" ")
-      .filter(Boolean);
-
-    const initials =
-      nameParts.length > 1
-        ? `${nameParts[0][0]}${
-            nameParts[nameParts.length - 1][0]
-          }`
-        : nameParts[0].slice(0, 2);
-
-    /*
-     * Generate next employee ID
-     *
-     * EMP001
-     * EMP002
-     * EMP003
-     * ...
-     */
-
-    setMembers((current) => {
-      const employeeNumbers = current
-        .map((member) =>
-          Number(member.id.replace("EMP", ""))
-        )
-        .filter((number) => !Number.isNaN(number));
-
-      const highestNumber =
-        employeeNumbers.length > 0
-          ? Math.max(...employeeNumbers)
-          : 0;
-
-      const newMember = {
-        id: `EMP${String(highestNumber + 1).padStart(
-          3,
-          "0"
-        )}`,
-
-        initials: initials.toUpperCase(),
-
-        name: memberData.name.trim(),
-
-        email: memberData.email.trim(),
-
-        role: memberData.role,
-
-        projectId: projectId?.toUpperCase(),
-      };
-
-      return [
-        ...current,
-        newMember,
-      ];
-    });
-  };
+  useEffect(() => {
+    if (users.length > 0) {
+      setMembers(users);
+    }
+  }, [users]);
 
   /*
    * =========================================================
-   * REMOVE MEMBER
+   * REFRESH MEMBERS
    * =========================================================
    */
 
-  const removeMember = (memberId) => {
-    setMembers((current) =>
-      current.filter(
-        (member) => member.id !== memberId
-      )
-    );
-  };
+  const fetchMembers = async () => {
+    const data = await fetchUsers();
 
-  /*
-   * =========================================================
-   * UPDATE MEMBER
-   * =========================================================
-   */
+    if (Array.isArray(data)) {
+      setMembers(data);
+    }
 
-  const updateMember = (updatedMember) => {
-    setMembers((current) =>
-      current.map((member) =>
-        member.id === updatedMember.id
-          ? {
-              ...member,
-              ...updatedMember,
-            }
-          : member
-      )
-    );
-  };
-
-  /*
-   * =========================================================
-   * GET PROJECT MEMBERS
-   * =========================================================
-   */
-
-  const getProjectMembers = (projectId) => {
-    const projectCode = projectId?.toUpperCase();
-
-    return members.filter(
-      (member) => member.projectId === projectCode
-    );
+    return data;
   };
 
   /*
@@ -173,32 +49,121 @@ export function MemberProvider({ children }) {
    */
 
   const getMemberById = (memberId) => {
-    return members.find(
-      (member) => member.id === memberId
+    return (
+      members.find(
+        (member) =>
+          String(member?.id) === String(memberId)
+      ) || null
     );
+  };
+
+  /*
+   * =========================================================
+   * GET MEMBERS BY COMPANY
+   * =========================================================
+   */
+
+  const getCompanyMembers = (companyId) => {
+    if (!companyId) {
+      return [];
+    }
+
+    return members.filter(
+      (member) =>
+        String(
+          member?.company?.id ||
+          member?.companyId ||
+          ""
+        ) === String(companyId)
+    );
+  };
+
+  /*
+   * =========================================================
+   * GET MEMBERS BY IDS
+   * =========================================================
+   */
+
+  const getMembersByIds = (memberIds = []) => {
+    return members.filter((member) =>
+      memberIds.some(
+        (id) =>
+          String(id) === String(member?.id)
+      )
+    );
+  };
+
+  /*
+   * =========================================================
+   * FULL NAME
+   * =========================================================
+   */
+
+  const getMemberFullName = (member) => {
+    if (!member) {
+      return "";
+    }
+
+    return (
+      member.name ||
+      `${member.firstName || ""} ${
+        member.surname || ""
+      }`.trim()
+    );
+  };
+
+  /*
+   * =========================================================
+   * REMOVE MEMBER FROM PROJECT
+   * =========================================================
+   *
+   * IMPORTANT:
+   *
+   * This should NOT delete the employee from
+   * the /users table.
+   *
+   * It should only be handled by updating
+   * the project membership.
+   *
+   */
+
+  const removeMember = async (
+    projectId,
+    memberId
+  ) => {
+    /*
+     * ProjectContext should handle this.
+     *
+     * We do NOT delete the employee.
+     */
+
+    return {
+      success: true,
+    };
   };
 
   return (
     <MemberContext.Provider
       value={{
         members,
-        addMember,
-        removeMember,
-        updateMember,
-        getProjectMembers,
+
+        fetchMembers,
+
         getMemberById,
+
+        getCompanyMembers,
+
+        getMembersByIds,
+
+        getMemberFullName,
+
+        removeMember,
       }}
     >
       {children}
     </MemberContext.Provider>
   );
 }
-
-/*
- * =========================================================
- * USE MEMBERS HOOK
- * =========================================================
- */
 
 export function useMembers() {
   return useContext(MemberContext);

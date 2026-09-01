@@ -7,23 +7,65 @@ import {
   Sparkles,
 } from "lucide-react";
 
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
-import Navbar from "../../components/Navbar";
-import Footer from "../../components/Footer";
+import { useAuth } from "../../context/AuthContext";
 
 function Login() {
+  const navigate = useNavigate();
+
+  const { login } = useAuth();
+
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleSubmit = (e) => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    console.log("Login submitted");
+    setError("");
+    setLoading(true);
+
+    try {
+      const result = await login(email, password);
+
+      if (!result.success) {
+        setError(result.message);
+        return;
+      }
+
+      /*
+       * Successfully logged in.
+       *
+       * Current behavior:
+       * All users go to dashboard.
+       *
+       * Later we can redirect based on role.
+       */
+
+      navigate("/dashboard");
+
+    } catch (error) {
+
+      console.error("Login error:", error);
+
+      setError(
+        "Unable to connect to the server. Make sure Spring Boot is running."
+      );
+
+    } finally {
+
+      setLoading(false);
+
+    }
   };
 
   return (
     <div className="min-h-screen bg-white text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-white">
-
 
       {/* =================================================
           LOGIN SECTION
@@ -144,7 +186,9 @@ function Login() {
 
               </div>
 
-              {/* Form */}
+              {/* =================================================
+                  FORM
+              ================================================= */}
 
               <form
                 onSubmit={handleSubmit}
@@ -162,6 +206,8 @@ function Login() {
                   <input
                     type="email"
                     required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@company.com"
                     className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-700 dark:bg-slate-950 dark:placeholder:text-slate-600"
                   />
@@ -192,6 +238,8 @@ function Login() {
                     <input
                       type={showPassword ? "text" : "password"}
                       required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                       placeholder="Enter your password"
                       className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-11 text-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-700 dark:bg-slate-950 dark:placeholder:text-slate-600"
                     />
@@ -231,19 +279,30 @@ function Login() {
 
                 </div>
 
+                {/* Error */}
+
+                {error && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400">
+                    {error}
+                  </div>
+                )}
+
                 {/* Submit */}
 
                 <button
                   type="submit"
-                  className="group flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition hover:bg-indigo-500 active:scale-[0.99]"
+                  disabled={loading}
+                  className="group flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition hover:bg-indigo-500 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                 >
 
-                  Sign In
+                  {loading ? "Signing in..." : "Sign In"}
 
-                  <ArrowRight
-                    size={17}
-                    className="transition-transform group-hover:translate-x-1"
-                  />
+                  {!loading && (
+                    <ArrowRight
+                      size={17}
+                      className="transition-transform group-hover:translate-x-1"
+                    />
+                  )}
 
                 </button>
 
@@ -278,8 +337,6 @@ function Login() {
 
       </main>
 
-    
-
     </div>
   );
 }
@@ -295,7 +352,9 @@ function Feature({ title, text }) {
     <div className="flex gap-4">
 
       <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+
         <ShieldCheck size={17} />
+
       </div>
 
       <div>

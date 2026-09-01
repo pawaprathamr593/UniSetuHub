@@ -5,77 +5,418 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
+
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { useMembers } from "../../context/MemberContext";
+import { useProjects } from "../../context/ProjectContext";
+import { useTasks } from "../../context/TaskContext";
 
 function ProjectMembers() {
   const { projectId } = useParams();
 
   const {
-    members,
-    addMember,
-    removeMember,
+    members = [],
   } = useMembers();
 
-  const [showAddMember, setShowAddMember] = useState(false);
+  const {
+    projects = [],
+    updateProject,
+  } = useProjects();
 
-  const [newMember, setNewMember] = useState({
-    name: "",
-    email: "",
-    role: "Developer",
-  });
+  /*
+   * =========================================================
+   * TASK CONTEXT
+   * =========================================================
+   */
+
+  const {
+    tasks = [],
+  } = useTasks();
+
+  const [showAddMember, setShowAddMember] =
+    useState(false);
+
+  const [selectedEmployeeId, setSelectedEmployeeId] =
+    useState("");
+
+  /*
+   * =========================================================
+   * FIND CURRENT PROJECT
+   * =========================================================
+   */
+
+  const currentProject = projects.find(
+    (project) =>
+      String(project?.id).toUpperCase() ===
+        String(projectId).toUpperCase() ||
+      String(project?.code).toUpperCase() ===
+        String(projectId).toUpperCase()
+  );
+
+  /*
+   * =========================================================
+   * PROJECT NOT FOUND
+   * =========================================================
+   */
+
+  if (!currentProject) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-10 text-center dark:border-slate-800 dark:bg-slate-950">
+        <h1 className="text-xl font-semibold">
+          Project Not Found
+        </h1>
+
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+          The project with ID "{projectId}" does not
+          exist.
+        </p>
+      </div>
+    );
+  }
+
+  /*
+   * =========================================================
+   * PROJECT MEMBER IDS
+   * =========================================================
+   *
+   * Project stores:
+   *
+   * members: [
+   *   { id: "EMP002" },
+   *   { id: "EMP003" }
+   * ]
+   *
+   */
+
+  const projectMemberIds =
+    currentProject?.members?.map(
+      (member) => String(member?.id)
+    ) || [];
 
   /*
    * =========================================================
    * CURRENT PROJECT MEMBERS
    * =========================================================
+   *
+   * Get complete employee profiles from
+   * MemberContext.
+   *
    */
 
   const projectMembers = members.filter(
     (member) =>
-      member.projectId === projectId?.toUpperCase()
+      projectMemberIds.includes(
+        String(member?.id)
+      )
   );
 
   /*
    * =========================================================
-   * HANDLE INPUT
+   * AVAILABLE EMPLOYEES
+   * =========================================================
+   *
+   * Show all employees who are NOT already
+   * members of this project.
+   *
+   */
+
+  const availableEmployees =
+    members.filter(
+      (member) =>
+        !projectMemberIds.includes(
+          String(member?.id)
+        )
+    );
+
+  /*
+   * =========================================================
+   * DEBUG
    * =========================================================
    */
 
-  const handleChange = (e) => {
-    setNewMember({
-      ...newMember,
-      [e.target.name]: e.target.value,
-    });
+  console.log(
+    "========== PROJECT MEMBERS =========="
+  );
+
+  console.log(
+    "URL PROJECT ID:",
+    projectId
+  );
+
+  console.log(
+    "CURRENT PROJECT:",
+    currentProject
+  );
+
+  console.log(
+    "PROJECT MEMBER IDS:",
+    projectMemberIds
+  );
+
+  console.log(
+    "ALL EMPLOYEES:",
+    members
+  );
+
+  console.log(
+    "PROJECT MEMBERS:",
+    projectMembers
+  );
+
+  console.log(
+    "AVAILABLE EMPLOYEES:",
+    availableEmployees
+  );
+
+  console.log(
+    "ALL TASKS:",
+    tasks
+  );
+
+  /*
+   * =========================================================
+   * GET MEMBER NAME
+   * =========================================================
+   */
+
+  const getMemberName = (member) => {
+    if (!member) {
+      return "Unknown User";
+    }
+
+    if (member.name) {
+      return member.name;
+    }
+
+    const fullName =
+      `${member.firstName || ""} ${
+        member.surname || ""
+      }`.trim();
+
+    return (
+      fullName ||
+      member.email ||
+      "Unknown User"
+    );
   };
 
   /*
    * =========================================================
-   * ADD MEMBER
+   * GET INITIALS
    * =========================================================
    */
 
-  const handleAddMember = (e) => {
+  const getInitials = (member) => {
+    if (member?.initials) {
+      return member.initials;
+    }
+
+    const name = getMemberName(member);
+
+    return name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(
+        (word) =>
+          word.charAt(0)
+      )
+      .join("")
+      .toUpperCase();
+  };
+
+  /*
+   * =========================================================
+   * ROLE LABEL
+   * =========================================================
+   */
+
+  const getRoleLabel = (role) => {
+    const roles = {
+      WEBSITE_ADMIN: "Website Admin",
+      COMPANY_HEAD: "Company Head",
+      PROJECT_LEAD: "Project Lead",
+      EMPLOYEE: "Employee",
+    };
+
+    return (
+      roles[role] ||
+      role ||
+      "Employee"
+    );
+  };
+
+  /*
+   * =========================================================
+   * GET MEMBER TASK COUNT
+   * =========================================================
+   *
+   * Handles both:
+   *
+   * task.assignee.id
+   *
+   * and:
+   *
+   * task.assigneeId
+   *
+   */
+
+  const getMemberTaskCount = (memberId) => {
+    if (!memberId) {
+      return 0;
+    }
+
+    const normalizedMemberId =
+      String(memberId).trim();
+
+    return tasks.filter((task) => {
+
+      /*
+       * Assignee can be an object:
+       *
+       * task.assignee = {
+       *   id: "EMP001"
+       * }
+       */
+
+      const assigneeObjectId =
+        typeof task?.assignee === "object"
+          ? task?.assignee?.id
+          : null;
+
+      /*
+       * Assignee can also directly be an ID:
+       *
+       * task.assignee = "EMP001"
+       */
+
+      const assigneeDirectId =
+        typeof task?.assignee !== "object"
+          ? task?.assignee
+          : null;
+
+      /*
+       * Or backend may provide:
+       *
+       * task.assigneeId
+       */
+
+      const assigneeId =
+        task?.assigneeId;
+
+      return (
+        String(
+          assigneeObjectId || ""
+        ).trim() === normalizedMemberId ||
+        String(
+          assigneeDirectId || ""
+        ).trim() === normalizedMemberId ||
+        String(
+          assigneeId || ""
+        ).trim() === normalizedMemberId
+      );
+    }).length;
+  };
+
+  /*
+   * =========================================================
+   * ADD EXISTING EMPLOYEE TO PROJECT
+   * =========================================================
+   */
+
+  const handleAddMember = async (e) => {
     e.preventDefault();
 
+    if (!selectedEmployeeId) {
+      return;
+    }
+
+    /*
+     * Prevent duplicate member
+     */
+
     if (
-      !newMember.name.trim() ||
-      !newMember.email.trim()
+      projectMemberIds.includes(
+        String(selectedEmployeeId)
+      )
     ) {
       return;
     }
 
-    addMember(newMember, projectId);
+    /*
+     * Add selected employee ID
+     * to existing project members.
+     */
 
-    setNewMember({
-      name: "",
-      email: "",
-      role: "Developer",
-    });
+    const updatedMemberIds = [
+      ...projectMemberIds,
+      String(selectedEmployeeId),
+    ];
 
-    setShowAddMember(false);
+    console.log(
+      "ADDING EMPLOYEE:",
+      selectedEmployeeId
+    );
+
+    console.log(
+      "UPDATED MEMBER IDS:",
+      updatedMemberIds
+    );
+
+    /*
+     * IMPORTANT:
+     *
+     * Preserve all existing project data.
+     *
+     */
+
+    const result = await updateProject(
+      currentProject.id,
+      {
+        code:
+          currentProject.code,
+
+        name:
+          currentProject.name,
+
+        description:
+          currentProject.description,
+
+        type:
+          currentProject.type,
+
+        visibility:
+          currentProject.visibility,
+
+        companyId:
+          currentProject?.company?.id ||
+          currentProject?.companyId,
+
+        projectLeaderId:
+          currentProject?.projectLeader?.id ||
+          currentProject?.projectLeaderId,
+
+        memberIds:
+          updatedMemberIds,
+      }
+    );
+
+    console.log(
+      "UPDATE PROJECT RESULT:",
+      result
+    );
+
+    if (result?.success) {
+      setSelectedEmployeeId("");
+      setShowAddMember(false);
+    } else {
+      alert(
+        result?.message ||
+          "Failed to add member."
+      );
+    }
   };
 
   /*
@@ -84,18 +425,128 @@ function ProjectMembers() {
    * =========================================================
    */
 
-  const handleRemoveMember = (memberId) => {
-    const member = projectMembers.find(
-      (item) => item.id === memberId
+  const handleRemoveMember = async (
+    memberId
+  ) => {
+    const member =
+      projectMembers.find(
+        (item) =>
+          String(item?.id) ===
+          String(memberId)
+      );
+
+    const memberName =
+      getMemberName(member);
+
+    /*
+     * Don't allow removing project leader
+     */
+
+    const leaderId = String(
+      currentProject?.projectLeader?.id ||
+        currentProject?.projectLeaderId ||
+        ""
     );
 
-    const confirmed = window.confirm(
-      `Remove ${member?.name} from this project?`
+    if (
+      leaderId &&
+      String(memberId) === leaderId
+    ) {
+      alert(
+        "The project leader cannot be removed from the project."
+      );
+
+      return;
+    }
+
+    const confirmed =
+      window.confirm(
+        `Remove ${memberName} from this project?`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    /*
+     * Remove employee ID
+     */
+
+    const updatedMemberIds =
+      projectMemberIds.filter(
+        (id) =>
+          String(id) !==
+          String(memberId)
+      );
+
+    console.log(
+      "REMOVING MEMBER:",
+      memberId
     );
 
-    if (!confirmed) return;
+    console.log(
+      "UPDATED MEMBER IDS:",
+      updatedMemberIds
+    );
 
-    removeMember(memberId);
+    /*
+     * Update project
+     */
+
+    const result =
+      await updateProject(
+        currentProject.id,
+        {
+          code:
+            currentProject.code,
+
+          name:
+            currentProject.name,
+
+          description:
+            currentProject.description,
+
+          type:
+            currentProject.type,
+
+          visibility:
+            currentProject.visibility,
+
+          companyId:
+            currentProject?.company?.id ||
+            currentProject?.companyId,
+
+          projectLeaderId:
+            currentProject?.projectLeader?.id ||
+            currentProject?.projectLeaderId,
+
+          memberIds:
+            updatedMemberIds,
+        }
+      );
+
+    console.log(
+      "REMOVE MEMBER RESULT:",
+      result
+    );
+
+    if (!result?.success) {
+      alert(
+        result?.message ||
+          "Failed to remove member."
+      );
+    }
+  };
+
+  /*
+   * =========================================================
+   * OPEN ADD MEMBER MODAL
+   * =========================================================
+   */
+
+  const handleOpenAddMember = () => {
+    setSelectedEmployeeId("");
+    setShowAddMember(true);
   };
 
   /*
@@ -107,7 +558,9 @@ function ProjectMembers() {
   return (
     <div className="space-y-6">
 
-      {/* Header */}
+      {/* =================================================
+          HEADER
+      ================================================= */}
 
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
 
@@ -120,20 +573,29 @@ function ProjectMembers() {
             </h1>
 
             <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-              {projectId?.toUpperCase()}
+              {currentProject.code ||
+                currentProject.id}
             </span>
 
           </div>
 
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Manage the people working on this project.
+            Manage the people working on this
+            project.
           </p>
 
         </div>
 
         <button
-          onClick={() => setShowAddMember(true)}
-          className="flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500"
+          type="button"
+          onClick={
+            handleOpenAddMember
+          }
+          disabled={
+            availableEmployees.length ===
+            0
+          }
+          className="flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-400"
         >
           <Plus size={18} />
           Add Member
@@ -141,24 +603,35 @@ function ProjectMembers() {
 
       </div>
 
-      {/* Summary */}
+      {/* =================================================
+          SUMMARY
+      ================================================= */}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
 
         <SummaryCard
           icon={<Users size={19} />}
           label="Total Members"
-          value={projectMembers.length}
+          value={
+            projectMembers.length
+          }
         />
 
         <SummaryCard
           icon={<UserPlus size={19} />}
           label="Developers"
           value={
-            projectMembers.filter((member) =>
-              member.role
-                .toLowerCase()
-                .includes("developer")
+            projectMembers.filter(
+              (member) =>
+                String(
+                  member?.role || ""
+                )
+                  .toLowerCase()
+                  .includes(
+                    "developer"
+                  ) ||
+                member?.role ===
+                  "EMPLOYEE"
             ).length
           }
         />
@@ -167,17 +640,26 @@ function ProjectMembers() {
           icon={<Mail size={19} />}
           label="Project Admins"
           value={
-            projectMembers.filter((member) =>
-              member.role
-                .toLowerCase()
-                .includes("admin")
+            projectMembers.filter(
+              (member) =>
+                String(
+                  member?.role || ""
+                )
+                  .toLowerCase()
+                  .includes(
+                    "admin"
+                  ) ||
+                member?.role ===
+                  "WEBSITE_ADMIN"
             ).length
           }
         />
 
       </div>
 
-      {/* Members */}
+      {/* =================================================
+          MEMBERS
+      ================================================= */}
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
 
@@ -188,92 +670,164 @@ function ProjectMembers() {
           </h2>
 
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            {projectMembers.length} people are currently part
+            {projectMembers.length}{" "}
+            people are currently part
             of this project.
           </p>
 
         </div>
 
-        {projectMembers.length > 0 ? (
+        {projectMembers.length >
+        0 ? (
 
           <div className="divide-y divide-slate-200 dark:divide-slate-800">
 
-            {projectMembers.map((member) => (
+            {projectMembers.map(
+              (member) => {
 
-              <div
-                key={member.id}
-                className="flex flex-col gap-4 px-5 py-4 transition hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between dark:hover:bg-slate-900/50"
-              >
+                const memberName =
+                  getMemberName(
+                    member
+                  );
 
-                {/* Member */}
+                const initials =
+                  getInitials(
+                    member
+                  );
 
-                <div className="flex items-center gap-3">
+                const role =
+                  getRoleLabel(
+                    member?.role
+                  );
 
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
-                    {member.initials}
-                  </div>
+                const leaderId =
+                  String(
+                    currentProject
+                      ?.projectLeader
+                      ?.id ||
+                      currentProject?.projectLeaderId ||
+                      ""
+                  );
 
-                  <div>
+                const isLeader =
+                  String(
+                    member?.id
+                  ) ===
+                  leaderId;
 
-                    <p className="text-sm font-semibold">
-                      {member.name}
-                    </p>
+                /*
+                 * =================================================
+                 * MEMBER TASK COUNT
+                 * =================================================
+                 */
 
-                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                      {member.email}
-                    </p>
+                const taskCount =
+                  getMemberTaskCount(
+                    member?.id
+                  );
 
-                  </div>
-
-                </div>
-
-                {/* Role */}
-
-                <div className="min-w-[150px]">
-
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                    Role
-                  </p>
-
-                  <p className="mt-1 text-sm font-medium">
-                    {member.role}
-                  </p>
-
-                </div>
-
-                {/* Tasks */}
-
-                <div className="min-w-[130px]">
-
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                    Tasks
-                  </p>
-
-                  <p className="mt-1 text-sm font-medium">
-                    —
-                  </p>
-
-                </div>
-
-                {/* Actions */}
-
-                <div className="flex items-center">
-
-                  <button
-                    onClick={() =>
-                      handleRemoveMember(member.id)
+                return (
+                  <div
+                    key={
+                      member?.id ||
+                      member?.email
                     }
-                    className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
-                    title="Remove member"
+                    className="flex flex-col gap-4 px-5 py-4 transition hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between dark:hover:bg-slate-900/50"
                   >
-                    <MoreHorizontal size={18} />
-                  </button>
 
-                </div>
+                    {/* Member */}
 
-              </div>
+                    <div className="flex items-center gap-3">
 
-            ))}
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+                        {initials}
+                      </div>
+
+                      <div>
+
+                        <div className="flex items-center gap-2">
+
+                          <p className="text-sm font-semibold">
+                            {memberName}
+                          </p>
+
+                          {isLeader && (
+                            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+                              Leader
+                            </span>
+                          )}
+
+                        </div>
+
+                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                          {member?.email ||
+                            "No email"}
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                    {/* Role */}
+
+                    <div className="min-w-[150px]">
+
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                        Role
+                      </p>
+
+                      <p className="mt-1 text-sm font-medium">
+                        {role}
+                      </p>
+
+                    </div>
+
+                    {/* Tasks */}
+
+                    <div className="min-w-[130px]">
+
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                        Tasks
+                      </p>
+
+                      <p className="mt-1 text-sm font-medium">
+                        {taskCount}
+                      </p>
+
+                    </div>
+
+                    {/* Actions */}
+
+                    <div className="flex items-center">
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleRemoveMember(
+                            member?.id
+                          )
+                        }
+                        disabled={
+                          isLeader
+                        }
+                        className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-red-500/10"
+                        title={
+                          isLeader
+                            ? "Project leader cannot be removed"
+                            : "Remove member"
+                        }
+                      >
+                        <MoreHorizontal
+                          size={18}
+                        />
+                      </button>
+
+                    </div>
+
+                  </div>
+                );
+              }
+            )}
 
           </div>
 
@@ -291,7 +845,8 @@ function ProjectMembers() {
             </p>
 
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Add members to this project to get started.
+              Add members to this
+              project to get started.
             </p>
 
           </div>
@@ -300,7 +855,9 @@ function ProjectMembers() {
 
       </div>
 
-      {/* Add Member Modal */}
+      {/* =================================================
+          ADD MEMBER MODAL
+      ================================================= */}
 
       {showAddMember && (
 
@@ -317,80 +874,122 @@ function ProjectMembers() {
               </h2>
 
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Add someone to the{" "}
-                {projectId?.toUpperCase()} project.
+                Select an employee to add
+                to{" "}
+                <span className="font-medium">
+                  {currentProject.code ||
+                    currentProject.id}
+                </span>
+                .
               </p>
 
             </div>
 
             {/* Form */}
 
-            <form onSubmit={handleAddMember}>
+            <form
+              onSubmit={
+                handleAddMember
+              }
+            >
 
               <div className="space-y-4 p-5">
 
-                {/* Name */}
+                {/* Employee */}
 
                 <div>
 
                   <label className="mb-2 block text-sm font-medium">
-                    Full Name
+                    Select Employee
                   </label>
 
-                  <input
-                    name="name"
-                    value={newMember.name}
-                    onChange={handleChange}
-                    required
-                    placeholder="Enter full name"
-                    className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-950"
+                  {availableEmployees.length >
+                  0 ? (
+
+                    <select
+                      value={
+                        selectedEmployeeId
+                      }
+                      onChange={(e) =>
+                        setSelectedEmployeeId(
+                          e.target.value
+                        )
+                      }
+                      required
+                      className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-950"
+                    >
+
+                      <option value="">
+                        -- Select Employee --
+                      </option>
+
+                      {availableEmployees.map(
+                        (employee) => {
+
+                          const name =
+                            getMemberName(
+                              employee
+                            );
+
+                          return (
+                            <option
+                              key={
+                                employee.id
+                              }
+                              value={
+                                employee.id
+                              }
+                            >
+                              {name}{" "}
+                              —{" "}
+                              {employee.email}{" "}
+                              —{" "}
+                              {getRoleLabel(
+                                employee.role
+                              )}
+                            </option>
+                          );
+                        }
+                      )}
+
+                    </select>
+
+                  ) : (
+
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">
+                      All employees are
+                      already members of
+                      this project.
+                    </div>
+
+                  )}
+
+                </div>
+
+                {/* Selected Employee Preview */}
+
+                {selectedEmployeeId && (
+                  <SelectedEmployeePreview
+                    employee={members.find(
+                      (member) =>
+                        String(
+                          member.id
+                        ) ===
+                        String(
+                          selectedEmployeeId
+                        )
+                    )}
+                    getMemberName={
+                      getMemberName
+                    }
+                    getInitials={
+                      getInitials
+                    }
+                    getRoleLabel={
+                      getRoleLabel
+                    }
                   />
-
-                </div>
-
-                {/* Email */}
-
-                <div>
-
-                  <label className="mb-2 block text-sm font-medium">
-                    Email
-                  </label>
-
-                  <input
-                    type="email"
-                    name="email"
-                    value={newMember.email}
-                    onChange={handleChange}
-                    required
-                    placeholder="Enter email address"
-                    className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-950"
-                  />
-
-                </div>
-
-                {/* Role */}
-
-                <div>
-
-                  <label className="mb-2 block text-sm font-medium">
-                    Role
-                  </label>
-
-                  <select
-                    name="role"
-                    value={newMember.role}
-                    onChange={handleChange}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
-                  >
-                    <option>Developer</option>
-                    <option>Frontend Developer</option>
-                    <option>Backend Developer</option>
-                    <option>UI/UX Designer</option>
-                    <option>Tester</option>
-                    <option>Project Manager</option>
-                  </select>
-
-                </div>
+                )}
 
               </div>
 
@@ -400,9 +999,14 @@ function ProjectMembers() {
 
                 <button
                   type="button"
-                  onClick={() =>
-                    setShowAddMember(false)
-                  }
+                  onClick={() => {
+                    setShowAddMember(
+                      false
+                    );
+                    setSelectedEmployeeId(
+                      ""
+                    );
+                  }}
                   className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium dark:border-slate-700"
                 >
                   Cancel
@@ -410,7 +1014,10 @@ function ProjectMembers() {
 
                 <button
                   type="submit"
-                  className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500"
+                  disabled={
+                    !selectedEmployeeId
+                  }
+                  className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-400"
                 >
                   Add Member
                 </button>
@@ -431,11 +1038,64 @@ function ProjectMembers() {
 
 /*
  * =========================================================
+ * SELECTED EMPLOYEE PREVIEW
+ * =========================================================
+ */
+
+function SelectedEmployeePreview({
+  employee,
+  getMemberName,
+  getInitials,
+  getRoleLabel,
+}) {
+  if (!employee) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4 dark:border-indigo-500/20 dark:bg-indigo-500/10">
+
+      <div className="flex items-center gap-3">
+
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+          {getInitials(employee)}
+        </div>
+
+        <div className="min-w-0">
+
+          <p className="text-sm font-semibold">
+            {getMemberName(employee)}
+          </p>
+
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {employee.email}
+          </p>
+
+          <p className="mt-1 text-xs font-medium text-indigo-600 dark:text-indigo-400">
+            {getRoleLabel(
+              employee.role
+            )}
+          </p>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+
+/*
+ * =========================================================
  * SUMMARY CARD
  * =========================================================
  */
 
-function SummaryCard({ icon, label, value }) {
+function SummaryCard({
+  icon,
+  label,
+  value,
+}) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
 
