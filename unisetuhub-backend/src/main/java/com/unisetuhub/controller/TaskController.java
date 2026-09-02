@@ -10,13 +10,14 @@ import com.unisetuhub.service.TaskService;
 
 @RestController
 @RequestMapping("/tasks")
-
 public class TaskController {
 
     private final TaskService taskService;
 
     public TaskController(TaskService taskService) {
+
         this.taskService = taskService;
+
     }
 
     // =========================================================
@@ -29,6 +30,7 @@ public class TaskController {
         return ResponseEntity.ok(
                 taskService.getAllTasks()
         );
+
     }
 
     // =========================================================
@@ -42,12 +44,15 @@ public class TaskController {
         Task task = taskService.getTaskById(id);
 
         if (task == null) {
+
             return ResponseEntity
                     .notFound()
                     .build();
+
         }
 
         return ResponseEntity.ok(task);
+
     }
 
     // =========================================================
@@ -61,6 +66,7 @@ public class TaskController {
         return ResponseEntity.ok(
                 taskService.getTasksByProject(projectId)
         );
+
     }
 
     // =========================================================
@@ -74,6 +80,7 @@ public class TaskController {
         return ResponseEntity.ok(
                 taskService.getTasksByAssignee(userId)
         );
+
     }
 
     // =========================================================
@@ -104,30 +111,38 @@ public class TaskController {
             return ResponseEntity
                     .badRequest()
                     .body(e.getMessage());
+
         }
+
     }
 
     // =========================================================
     // UPDATE TASK
     // =========================================================
+    
+    // PUT /tasks/{id}?changedById=USER_ID
 
     @PutMapping("/{id}")
     public ResponseEntity<?> updateTask(
             @PathVariable String id,
-            @RequestBody Task task) {
+            @RequestBody Task task,
+            @RequestParam(required = false) String changedById) {
 
         try {
 
             Task updatedTask =
                     taskService.updateTask(
                             id,
-                            task
+                            task,
+                            changedById
                     );
 
             if (updatedTask == null) {
+
                 return ResponseEntity
                         .notFound()
                         .build();
+
             }
 
             return ResponseEntity.ok(updatedTask);
@@ -137,34 +152,56 @@ public class TaskController {
             return ResponseEntity
                     .badRequest()
                     .body(e.getMessage());
+
         }
+
     }
 
     // =========================================================
     // DELETE TASK
     // =========================================================
 
+    // DELETE /tasks/{id}?deletedById=USER_ID
+
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteTask(
-            @PathVariable String id) {
+            @PathVariable String id,
+            @RequestParam(required = false) String deletedById) {
 
-        boolean deleted =
-                taskService.deleteTask(id);
+        try {
 
-        if (!deleted) {
+            boolean deleted =
+                    taskService.deleteTask(
+                            id,
+                            deletedById
+                    );
+
+            if (!deleted) {
+
+                return ResponseEntity
+                        .notFound()
+                        .build();
+
+            }
+
+            return ResponseEntity.ok(
+                    "Task deleted successfully."
+            );
+
+        } catch (RuntimeException e) {
+
             return ResponseEntity
-                    .notFound()
-                    .build();
+                    .badRequest()
+                    .body(e.getMessage());
+
         }
 
-        return ResponseEntity.ok(
-                "Task deleted successfully."
-        );
     }
 
     // =========================================================
     // START TASK
     // =========================================================
+
     // TODO / REJECTED → IN_PROGRESS
 
     @PutMapping("/{taskId}/start")
@@ -181,9 +218,11 @@ public class TaskController {
                     );
 
             if (task == null) {
+
                 return ResponseEntity
                         .notFound()
                         .build();
+
             }
 
             return ResponseEntity.ok(task);
@@ -193,12 +232,15 @@ public class TaskController {
             return ResponseEntity
                     .badRequest()
                     .body(e.getMessage());
+
         }
+
     }
 
     // =========================================================
     // SUBMIT TASK
     // =========================================================
+
     // IN_PROGRESS → SUBMITTED
 
     @PutMapping("/{taskId}/submit")
@@ -215,9 +257,11 @@ public class TaskController {
                     );
 
             if (task == null) {
+
                 return ResponseEntity
                         .notFound()
                         .build();
+
             }
 
             return ResponseEntity.ok(task);
@@ -227,12 +271,15 @@ public class TaskController {
             return ResponseEntity
                     .badRequest()
                     .body(e.getMessage());
+
         }
+
     }
 
     // =========================================================
     // ACCEPT TASK
     // =========================================================
+
     // SUBMITTED → DONE
 
     @PutMapping("/{taskId}/accept")
@@ -251,9 +298,11 @@ public class TaskController {
                     );
 
             if (task == null) {
+
                 return ResponseEntity
                         .notFound()
                         .build();
+
             }
 
             return ResponseEntity.ok(task);
@@ -263,12 +312,15 @@ public class TaskController {
             return ResponseEntity
                     .badRequest()
                     .body(e.getMessage());
+
         }
+
     }
 
     // =========================================================
     // REJECT TASK
     // =========================================================
+
     // SUBMITTED → REJECTED
 
     @PutMapping("/{taskId}/reject")
@@ -287,9 +339,11 @@ public class TaskController {
                     );
 
             if (task == null) {
+
                 return ResponseEntity
                         .notFound()
                         .build();
+
             }
 
             return ResponseEntity.ok(task);
@@ -299,6 +353,9 @@ public class TaskController {
             return ResponseEntity
                     .badRequest()
                     .body(e.getMessage());
+
         }
+
     }
+
 }

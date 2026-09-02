@@ -1,14 +1,17 @@
-
 package com.unisetuhub.service;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.unisetuhub.entity.Company;
 import com.unisetuhub.entity.Project;
+import com.unisetuhub.entity.ProjectMemberHistory;
 import com.unisetuhub.entity.User;
 import com.unisetuhub.repository.CompanyRepository;
 import com.unisetuhub.repository.ProjectRepository;
@@ -21,14 +24,21 @@ public class ProjectService {
     private final CompanyRepository companyRepository;
     private final UserRepository userRepository;
 
+    private final ProjectMemberHistoryService projectMemberHistoryService;
+    private final NotificationService notificationService;
+
     public ProjectService(
             ProjectRepository projectRepository,
             CompanyRepository companyRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            ProjectMemberHistoryService projectMemberHistoryService,
+            NotificationService notificationService) {
 
         this.projectRepository = projectRepository;
         this.companyRepository = companyRepository;
         this.userRepository = userRepository;
+        this.projectMemberHistoryService = projectMemberHistoryService;
+        this.notificationService = notificationService;
     }
 
     // =========================================================
@@ -237,9 +247,11 @@ public class ProjectService {
     // UPDATE PROJECT
     // =========================================================
 
+    @Transactional
     public Project updateProject(
             String id,
-            Project updatedProject) {
+            Project updatedProject,
+            String changedById) {
 
         // -----------------------------------------------------
         // FIND EXISTING PROJECT
@@ -251,6 +263,24 @@ public class ProjectService {
 
         if (existingProject == null) {
             return null;
+        }
+
+        // -----------------------------------------------------
+        // SAVE OLD MEMBERS
+        // -----------------------------------------------------
+
+        Set<String> oldMemberIds = new HashSet<>();
+
+        if (existingProject.getMembers() != null) {
+
+            for (User member : existingProject.getMembers()) {
+
+                if (member != null &&
+                        member.getId() != null) {
+
+                    oldMemberIds.add(member.getId());
+                }
+            }
         }
 
         // -----------------------------------------------------
@@ -446,6 +476,135 @@ public class ProjectService {
             members.add(projectLeader);
         }
 
+        // -----------------------------------------------------
+        // FIND ADDED MEMBERS
+        // -----------------------------------------------------
+
+        Set<String> newMemberIds = new HashSet<>();
+
+        for (User member : members) {
+
+            if (member != null &&
+                    member.getId() != null) {
+
+                newMemberIds.add(member.getId());
+            }
+        }
+
+        // -----------------------------------------------------
+        // ADDED MEMBERS
+        // -----------------------------------------------------
+
+        for (String memberId : newMemberIds) {
+
+            if (!oldMemberIds.contains(memberId)) {
+
+                ProjectMemberHistory history =
+                        new ProjectMemberHistory();
+
+                history.setId(
+                        UUID.randomUUID().toString()
+                );
+
+                history.setProjectId(
+                        existingProject.getId()
+                );
+
+                history.setMemberId(
+                        memberId
+                );
+
+                history.setAction(
+                        "ADD"
+                );
+
+                history.setChangedById(
+                        changedById
+                );
+
+                history.setChangedAt(
+                        LocalDateTime.now()
+                );
+
+                projectMemberHistoryService
+                        .saveHistory(history);
+
+                // -------------------------------------------------
+                // NOTIFICATION TO ADDED MEMBER
+                // -------------------------------------------------
+
+                notificationService.createNotification(
+                        memberId,
+                        changedById,
+                        "PROJECT_MEMBER_ADDED",
+                        "Added to project",
+                        "You have been added to project "
+                                + existingProject.getName(),
+                        existingProject.getId(),
+                        null
+                );
+            }
+        }
+
+        // -----------------------------------------------------
+        // REMOVED MEMBERS
+        // -----------------------------------------------------
+
+        for (String oldMemberId : oldMemberIds) {
+
+            if (!newMemberIds.contains(oldMemberId)) {
+
+                ProjectMemberHistory history =
+                        new ProjectMemberHistory();
+
+                history.setId(
+                        UUID.randomUUID().toString()
+                );
+
+                history.setProjectId(
+                        existingProject.getId()
+                );
+
+                history.setMemberId(
+                        oldMemberId
+                );
+
+                history.setAction(
+                        "REMOVE"
+                );
+
+                history.setChangedById(
+                        changedById
+                );
+
+                history.setChangedAt(
+                        LocalDateTime.now()
+                );
+
+                projectMemberHistoryService
+                        .saveHistory(history);
+
+                // -------------------------------------------------
+                // NOTIFICATION TO REMOVED MEMBER
+                // -------------------------------------------------
+
+                notificationService.createNotification(
+                        oldMemberId,
+                        changedById,
+                        "PROJECT_MEMBER_REMOVED",
+                        "Removed from project",
+                        "You have been removed from project "
+                                + existingProject.getName(),
+                        existingProject.getId(),
+                        null
+                );
+            }
+        }
+
+        // -----------------------------------------------------
+        // SET MEMBERS
+        // -----------------------------------------------------
+
         existingProject.setMembers(members);
 
         // -----------------------------------------------------
@@ -453,6 +612,21 @@ public class ProjectService {
         // -----------------------------------------------------
 
         return projectRepository.save(existingProject);
+    }
+
+    // =========================================================
+    // BACKWARD COMPATIBILITY
+    // =========================================================
+
+    public Project updateProject(
+            String id,
+            Project updatedProject) {
+
+        return updateProject(
+                id,
+                updatedProject,
+                null
+        );
     }
 
     // =========================================================

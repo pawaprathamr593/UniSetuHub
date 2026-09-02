@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.unisetuhub.entity.Project;
@@ -117,18 +118,20 @@ public class ProjectController {
 
     // =========================================================
     // UPDATE PROJECT
-    // PUT /projects/{id}
+    // PUT /projects/{id}?changedById=USER_ID
     // =========================================================
 
     @PutMapping("/{id}")
     public ResponseEntity<Project> updateProject(
             @PathVariable String id,
-            @RequestBody Project project) {
+            @RequestBody Project project,
+            @RequestParam(required = false) String changedById) {
 
         Project updatedProject =
                 projectService.updateProject(
                         id,
-                        project
+                        project,
+                        changedById
                 );
 
         if (updatedProject == null) {

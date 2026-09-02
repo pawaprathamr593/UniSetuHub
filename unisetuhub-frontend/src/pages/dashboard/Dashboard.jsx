@@ -9,6 +9,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { useTasks } from "../../context/TaskContext";
 import { useProjects } from "../../context/ProjectContext";
+import { useMembers } from "../../context/MemberContext";
 import { ROLES } from "../../constants/roles";
 
 import { useNavigate } from "react-router-dom";
@@ -17,73 +18,406 @@ function Dashboard() {
   const { currentUser } = useAuth();
   const { tasks = [] } = useTasks();
   const { projects = [] } = useProjects();
+  const { members = [] } = useMembers();
 
   const navigate = useNavigate();
 
+  const role = currentUser?.role;
+
+  const currentUserId = String(currentUser?.id || "");
+
   /*
    * =========================================================
-   * EMPLOYEE TASKS
+   * HELPERS
    * =========================================================
    */
 
-  const myTasks = tasks.filter(
-    (task) =>
-      String(task?.assignee?.id || "") ===
-      String(currentUser?.id || "")
-  );
+  const normalizeId = (value) =>
+    value === null || value === undefined
+      ? ""
+      : String(value).trim();
+
+  const getCompanyId = (object) => {
+    if (!object) {
+      return "";
+    }
+
+    return normalizeId(
+      object?.company?.id ||
+      object?.companyId ||
+      object?.company?.companyId
+    );
+  };
+
+  const currentCompanyId = getCompanyId(currentUser);
+
+  const getProjectLeaderId = (project) => {
+    return normalizeId(
+      project?.leader?.id ||
+      project?.projectLead?.id ||
+      project?.lead?.id ||
+      project?.leaderId ||
+      project?.projectLeadId ||
+      project?.leadId
+    );
+  };
+
+  const getTaskProjectId = (task) => {
+    return normalizeId(
+      task?.project?.id ||
+      task?.projectId
+    );
+  };
+
+  const getTaskCompanyId = (task) => {
+    const taskProjectCompanyId = getCompanyId(
+      task?.project
+    );
+
+    return normalizeId(
+      taskProjectCompanyId ||
+      task?.company?.id ||
+      task?.companyId ||
+      task?.company?.companyId
+    );
+  };
+
+  const getMemberCompanyId = (member) => {
+    return getCompanyId(member);
+  };
 
   /*
    * =========================================================
-   * EMPLOYEE PROJECTS
+   * EMPLOYEE ACCESSIBLE PROJECTS
    * =========================================================
    */
 
   const myProjects = projects.filter((project) => {
-    const projectId = String(project?.id || "").toUpperCase();
+    const projectId = normalizeId(project?.id);
 
-    return (
+    const hasProjectIdAccess =
       currentUser?.projectIds?.some(
         (id) =>
-          String(id).toUpperCase() === projectId
-      ) ||
+          normalizeId(id) === projectId
+      ) === true;
+
+    const isProjectMember =
       project?.members?.some(
         (member) =>
-          String(member?.id || "") ===
-          String(currentUser?.id || "")
-      )
+          normalizeId(member?.id) ===
+          currentUserId
+      ) === true;
+
+    return (
+      hasProjectIdAccess ||
+      isProjectMember
     );
   });
 
   /*
    * =========================================================
-   * TASK COUNTS
+   * PROJECT LEAD PROJECTS
+   * =========================================================
+   */
+
+  const myLedProjects = projects.filter(
+    (project) => {
+      const projectCompanyId =
+        getCompanyId(project);
+
+      const leaderId =
+        getProjectLeaderId(project);
+
+      const sameCompany =
+        !currentCompanyId ||
+        !projectCompanyId ||
+        projectCompanyId === currentCompanyId;
+
+      return (
+        sameCompany &&
+        leaderId === currentUserId
+      );
+    }
+  );
+
+  /*
+   * =========================================================
+   * PROJECT IDS FOR ACCESS SCOPING
+   * =========================================================
+   */
+
+  const employeeProjectIds = new Set(
+    myProjects.map((project) =>
+      normalizeId(project?.id)
+    )
+  );
+
+  const projectLeadProjectIds = new Set(
+    myLedProjects.map((project) =>
+      normalizeId(project?.id)
+    )
+  );
+
+  /*
+   * =========================================================
+   * EMPLOYEE TASKS
+   * =========================================================
+   *
+   * Employee sees only:
+   * - tasks assigned to them
+   * - tasks belonging to accessible projects
+   *
+   */
+
+  const myTasks = tasks.filter((task) => {
+    const assigneeId = normalizeId(
+      task?.assignee?.id ||
+      task?.assigneeId
+    );
+
+    const projectId =
+      getTaskProjectId(task);
+
+    return (
+      assigneeId === currentUserId &&
+      employeeProjectIds.has(projectId)
+    );
+  });
+
+  /*
+   * =========================================================
+   * PROJECT LEAD TASKS
+   * =========================================================
+   *
+   * Project Lead sees only tasks from projects
+   * they lead.
+   *
+   */
+
+  const myLedTasks = tasks.filter((task) => {
+    const projectId =
+      getTaskProjectId(task);
+
+    const taskCompanyId =
+      getTaskCompanyId(task);
+
+    const sameCompany =
+      !currentCompanyId ||
+      !taskCompanyId ||
+      taskCompanyId === currentCompanyId;
+
+    return (
+      sameCompany &&
+      projectLeadProjectIds.has(projectId)
+    );
+  });
+
+  /*
+   * =========================================================
+   * COMPANY DATA
+   * =========================================================
+   *
+   * Company Head sees only their company.
+   *
+   */
+
+  const companyProjects =
+    currentCompanyId
+      ? projects.filter((project) => {
+          const projectCompanyId =
+            getCompanyId(project);
+
+          return (
+            projectCompanyId ===
+            currentCompanyId
+          );
+        })
+      : projects;
+
+  const companyTasks =
+    currentCompanyId
+      ? tasks.filter((task) => {
+          const taskCompanyId =
+            getTaskCompanyId(task);
+
+          return (
+            taskCompanyId ===
+            currentCompanyId
+          );
+        })
+      : tasks;
+
+  const companyMembers =
+    currentCompanyId
+      ? members.filter((member) => {
+          const memberCompanyId =
+            getMemberCompanyId(member);
+
+          return (
+            memberCompanyId ===
+            currentCompanyId
+          );
+        })
+      : members;
+
+  /*
+   * =========================================================
+   * GENERAL TASK STATUS
+   * =========================================================
+   */
+
+  const isActiveStatus = (status) => {
+    return [
+      "TODO",
+      "IN_PROGRESS",
+      "REVIEW",
+      "PENDING_APPROVAL",
+      "SUBMITTED",
+    ].includes(
+      normalizeId(status).toUpperCase()
+    );
+  };
+
+  const isCompletedStatus = (status) => {
+    return [
+      "DONE",
+      "COMPLETED",
+      "ACCEPTED",
+    ].includes(
+      normalizeId(status).toUpperCase()
+    );
+  };
+
+  /*
+   * =========================================================
+   * EMPLOYEE TASK COUNTS
    * =========================================================
    */
 
   const todoTasks = myTasks.filter(
     (task) =>
-      String(task?.status || "").toUpperCase() ===
+      normalizeId(task?.status).toUpperCase() ===
       "TODO"
   ).length;
 
   const inProgressTasks = myTasks.filter(
     (task) =>
-      String(task?.status || "").toUpperCase() ===
+      normalizeId(task?.status).toUpperCase() ===
       "IN_PROGRESS"
   ).length;
 
   const reviewTasks = myTasks.filter(
     (task) =>
-      String(task?.status || "").toUpperCase() ===
-      "REVIEW"
+      [
+        "REVIEW",
+        "PENDING_APPROVAL",
+        "SUBMITTED",
+      ].includes(
+        normalizeId(task?.status).toUpperCase()
+      )
   ).length;
 
   const completedTasks = myTasks.filter(
     (task) =>
-      ["DONE", "COMPLETED", "ACCEPTED"].includes(
-        String(task?.status || "").toUpperCase()
-      )
+      isCompletedStatus(task?.status)
   ).length;
+
+  /*
+   * =========================================================
+   * ROLE BASED DASHBOARD COUNTS
+   * =========================================================
+   */
+
+  let dashboardProjects = [];
+  let dashboardTasks = [];
+  let dashboardEmployees = [];
+
+  if (role === ROLES.WEBSITE_ADMIN) {
+    /*
+     * Website Admin
+     * Full platform scope.
+     */
+
+    dashboardProjects = projects;
+    dashboardTasks = tasks;
+
+    dashboardEmployees = members.filter(
+      (member) =>
+        normalizeId(member?.role).toUpperCase() ===
+        ROLES.EMPLOYEE
+    );
+  } else if (role === ROLES.COMPANY_HEAD) {
+    /*
+     * Company Head
+     * Company scope only.
+     */
+
+    dashboardProjects =
+      companyProjects;
+
+    dashboardTasks =
+      companyTasks;
+
+    dashboardEmployees =
+      companyMembers.filter(
+        (member) =>
+          normalizeId(member?.role).toUpperCase() ===
+          ROLES.EMPLOYEE
+      );
+  } else if (role === ROLES.PROJECT_LEAD) {
+    /*
+     * Project Lead
+     * Only projects they lead.
+     */
+
+    dashboardProjects =
+      myLedProjects;
+
+    dashboardTasks =
+      myLedTasks;
+
+    dashboardEmployees = members.filter(
+      (member) => {
+        const memberCompanyId =
+          getMemberCompanyId(member);
+
+        return (
+          normalizeId(
+            member?.role
+          ).toUpperCase() ===
+            ROLES.EMPLOYEE &&
+          (
+            !currentCompanyId ||
+            !memberCompanyId ||
+            memberCompanyId ===
+              currentCompanyId
+          )
+        );
+      }
+    );
+  }
+
+  /*
+   * =========================================================
+   * NON-EMPLOYEE DASHBOARD COUNTS
+   * =========================================================
+   */
+
+  const totalProjects =
+    dashboardProjects.length;
+
+  const activeTasks =
+    dashboardTasks.filter((task) =>
+      isActiveStatus(task?.status)
+    ).length;
+
+  const totalCompletedTasks =
+    dashboardTasks.filter((task) =>
+      isCompletedStatus(task?.status)
+    ).length;
+
+  const employeeCount =
+    dashboardEmployees.length;
 
   /*
    * =========================================================
@@ -106,7 +440,7 @@ function Dashboard() {
 
   const getStatusLabel = (status) => {
     switch (
-      String(status || "").toUpperCase()
+      normalizeId(status).toUpperCase()
     ) {
       case "TODO":
         return "To Do";
@@ -115,6 +449,8 @@ function Dashboard() {
         return "In Progress";
 
       case "REVIEW":
+      case "PENDING_APPROVAL":
+      case "SUBMITTED":
         return "Review";
 
       case "DONE":
@@ -135,7 +471,7 @@ function Dashboard() {
 
   const getStatusStyle = (status) => {
     switch (
-      String(status || "").toUpperCase()
+      normalizeId(status).toUpperCase()
     ) {
       case "TODO":
         return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
@@ -144,6 +480,8 @@ function Dashboard() {
         return "bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400";
 
       case "REVIEW":
+      case "PENDING_APPROVAL":
+      case "SUBMITTED":
         return "bg-amber-100 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400";
 
       case "DONE":
@@ -160,16 +498,9 @@ function Dashboard() {
    * =========================================================
    * NON-EMPLOYEE DASHBOARD
    * =========================================================
-   *
-   * For now, keep your existing dashboard for
-   * Company Head / Project Lead / Website Admin.
-   *
    */
 
-  if (
-    currentUser?.role !==
-    ROLES.EMPLOYEE
-  ) {
+  if (role !== ROLES.EMPLOYEE) {
     return (
       <div>
         <div className="mb-8">
@@ -186,22 +517,22 @@ function Dashboard() {
 
           <DashboardCard
             label="Projects"
-            value="12"
+            value={totalProjects}
           />
 
           <DashboardCard
             label="Active Tasks"
-            value="48"
+            value={activeTasks}
           />
 
           <DashboardCard
             label="Employees"
-            value="36"
+            value={employeeCount}
           />
 
           <DashboardCard
             label="Completed"
-            value="127"
+            value={totalCompletedTasks}
           />
 
         </div>
@@ -294,7 +625,7 @@ function Dashboard() {
           <button
             type="button"
             onClick={() =>
-              navigate("/projects")
+              navigate("/my-projects")
             }
             className="flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
           >
@@ -310,45 +641,46 @@ function Dashboard() {
 
             {myProjects
               .slice(0, 5)
-              .map((project) => (
+              .map((project) => {
 
-                <div
-                  key={project.id}
-                  className="flex items-center justify-between px-5 py-4 transition hover:bg-slate-50 dark:hover:bg-slate-900/50"
-                >
+                const projectTaskCount =
+                  myTasks.filter(
+                    (task) =>
+                      getTaskProjectId(task) ===
+                      normalizeId(project?.id)
+                  ).length;
 
-                  <div className="flex items-center gap-3">
+                return (
+                  <div
+                    key={project.id}
+                    className="flex items-center justify-between px-5 py-4 transition hover:bg-slate-50 dark:hover:bg-slate-900/50"
+                  >
 
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
-                      <FolderKanban size={18} />
+                    <div className="flex items-center gap-3">
+
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+                        <FolderKanban size={18} />
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-semibold">
+                          {project.name}
+                        </p>
+
+                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                          {project.code || project.id}
+                        </p>
+                      </div>
+
                     </div>
 
-                    <div>
-                      <p className="text-sm font-semibold">
-                        {project.name}
-                      </p>
-
-                      <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                        {project.code || project.id}
-                      </p>
-                    </div>
+                    <span className="text-xs text-slate-400">
+                      {projectTaskCount} tasks
+                    </span>
 
                   </div>
-
-                  <span className="text-xs text-slate-400">
-                    {myTasks.filter(
-                      (task) =>
-                        String(
-                          task?.project?.id
-                        ) ===
-                        String(project.id)
-                    ).length}{" "}
-                    tasks
-                  </span>
-
-                </div>
-
-              ))}
+                );
+              })}
 
           </div>
 
@@ -397,7 +729,7 @@ function Dashboard() {
           <button
             type="button"
             onClick={() =>
-              navigate("/tasks")
+              navigate("/my-tasks")
             }
             className="flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
           >

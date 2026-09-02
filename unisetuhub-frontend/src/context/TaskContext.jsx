@@ -1,4 +1,3 @@
-
 import {
   createContext,
   useContext,
@@ -293,12 +292,6 @@ export function TaskProvider({ children }) {
        * ---------------------------------------------------------
        * ASSIGNEE ID
        * ---------------------------------------------------------
-       *
-       * Support all possible frontend/backend structures:
-       *
-       * task.assignee.id
-       * task.assigneeId
-       * task.assignee
        */
 
       let assigneeId = null;
@@ -318,19 +311,6 @@ export function TaskProvider({ children }) {
        * ---------------------------------------------------------
        * STATUS NORMALIZATION
        * ---------------------------------------------------------
-       *
-       * Frontend:
-       * todo
-       * progress
-       * review
-       * done
-       *
-       * Backend:
-       * TODO
-       * IN_PROGRESS
-       * SUBMITTED
-       * REJECTED
-       * DONE
        */
 
       const statusMap = {
@@ -356,8 +336,6 @@ export function TaskProvider({ children }) {
        * ---------------------------------------------------------
        * REQUEST BODY
        * ---------------------------------------------------------
-       *
-       * Send every editable field.
        */
 
       const taskBody = {
@@ -403,19 +381,40 @@ export function TaskProvider({ children }) {
 
       /*
        * ---------------------------------------------------------
+       * CHANGED BY
+       * ---------------------------------------------------------
+       */
+
+      const changedById =
+        currentUser?.id || null;
+
+      /*
+       * ---------------------------------------------------------
        * API REQUEST
        * ---------------------------------------------------------
        */
 
-      const response = await fetch(
+      const updateUrl = new URL(
         `${API_URL}/tasks/${encodeURIComponent(
           updatedTask.id
-        )}`,
+        )}`
+      );
+
+      if (changedById) {
+        updateUrl.searchParams.set(
+          "changedById",
+          changedById
+        );
+      }
+
+      const response = await fetch(
+        updateUrl.toString(),
         {
           method: "PUT",
 
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
 
           body: JSON.stringify(taskBody),
@@ -523,10 +522,36 @@ export function TaskProvider({ children }) {
         };
       }
 
-      const response = await fetch(
+      /*
+       * ---------------------------------------------------------
+       * DELETED BY
+       * ---------------------------------------------------------
+       */
+
+      const deletedById =
+        currentUser?.id || null;
+
+      /*
+       * ---------------------------------------------------------
+       * API URL
+       * ---------------------------------------------------------
+       */
+
+      const deleteUrl = new URL(
         `${API_URL}/tasks/${encodeURIComponent(
           taskId
-        )}`,
+        )}`
+      );
+
+      if (deletedById) {
+        deleteUrl.searchParams.set(
+          "deletedById",
+          deletedById
+        );
+      }
+
+      const response = await fetch(
+        deleteUrl.toString(),
         {
           method: "DELETE",
         }
@@ -946,4 +971,3 @@ export function TaskProvider({ children }) {
 export function useTasks() {
   return useContext(TaskContext);
 }
-

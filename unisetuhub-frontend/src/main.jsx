@@ -11,6 +11,7 @@ import { CompanyProvider } from "./context/CompanyContext";
 import { ProjectProvider } from "./context/ProjectContext";
 import { TaskProvider } from "./context/TaskContext";
 import { MemberProvider } from "./context/MemberContext";
+import { NotificationProvider } from "./context/NotificationContext";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
@@ -19,9 +20,11 @@ createRoot(document.getElementById("root")).render(
         <CompanyProvider>
           <MemberProvider>
             <ProjectProvider>
-              <TaskProvider>
-                <App />
-              </TaskProvider>
+              <NotificationProvider>
+                <TaskProvider>
+                  <App />
+                </TaskProvider>
+              </NotificationProvider>
             </ProjectProvider>
           </MemberProvider>
         </CompanyProvider>

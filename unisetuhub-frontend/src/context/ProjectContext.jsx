@@ -1,4 +1,3 @@
-
 import {
   createContext,
   useContext,
@@ -6,11 +5,16 @@ import {
   useState,
 } from "react";
 
+import { useAuth } from "./AuthContext";
+
 const ProjectContext = createContext();
 
 const API_URL = "http://localhost:8080";
 
 export function ProjectProvider({ children }) {
+
+  const { user } = useAuth();
+
   const [projects, setProjects] = useState([]);
 
   /*
@@ -65,6 +69,7 @@ export function ProjectProvider({ children }) {
     memberIds = [],
   }) => {
     try {
+
       /*
        * =====================================================
        * VALIDATION
@@ -231,7 +236,9 @@ export function ProjectProvider({ children }) {
         success: true,
         project: createdProject,
       };
+
     } catch (error) {
+
       console.error(
         "Add project error:",
         error
@@ -265,6 +272,7 @@ export function ProjectProvider({ children }) {
     }
   ) => {
     try {
+
       /*
        * =====================================================
        * FINAL MEMBER IDS
@@ -342,12 +350,34 @@ export function ProjectProvider({ children }) {
 
       /*
        * =====================================================
-       * API REQUEST
+       * LOGGED-IN USER
        * =====================================================
        */
 
+      const changedById = user?.id || null;
+
+      /*
+       * =====================================================
+       * API REQUEST
+       * =====================================================
+       *
+       * PUT /projects/{id}?changedById={loggedInUserId}
+       *
+       */
+
+      const url = new URL(
+        `${API_URL}/projects/${id}`
+      );
+
+      if (changedById) {
+        url.searchParams.set(
+          "changedById",
+          changedById
+        );
+      }
+
       const response = await fetch(
-        `${API_URL}/projects/${id}`,
+        url.toString(),
         {
           method: "PUT",
 
@@ -378,7 +408,9 @@ export function ProjectProvider({ children }) {
             errorData?.message ||
             errorData?.error ||
             message;
+
         } catch {
+
           try {
             const text =
               await response.text();
@@ -386,6 +418,7 @@ export function ProjectProvider({ children }) {
             if (text) {
               message = text;
             }
+
           } catch {
             // Ignore response parsing error
           }
@@ -412,7 +445,9 @@ export function ProjectProvider({ children }) {
         success: true,
         project: updatedProject,
       };
+
     } catch (error) {
+
       console.error(
         "Update project error:",
         error
@@ -436,6 +471,7 @@ export function ProjectProvider({ children }) {
     projectId
   ) => {
     try {
+
       const response = await fetch(
         `${API_URL}/projects/${projectId}`,
         {
@@ -444,10 +480,12 @@ export function ProjectProvider({ children }) {
       );
 
       if (!response.ok) {
+
         let message =
           "Failed to delete project.";
 
         try {
+
           const errorData =
             await response.json();
 
@@ -455,6 +493,7 @@ export function ProjectProvider({ children }) {
             errorData?.message ||
             errorData?.error ||
             message;
+
         } catch {
           // Ignore response parsing error
         }
@@ -476,7 +515,9 @@ export function ProjectProvider({ children }) {
       return {
         success: true,
       };
+
     } catch (error) {
+
       console.error(
         "Delete project error:",
         error
@@ -564,6 +605,7 @@ export function ProjectProvider({ children }) {
     projectId,
     employeeId
   ) => {
+
     const project =
       getProjectById(projectId);
 
@@ -587,6 +629,7 @@ export function ProjectProvider({ children }) {
     projectId,
     employeeId
   ) => {
+
     const project =
       getProjectById(projectId);
 
@@ -643,4 +686,3 @@ export function ProjectProvider({ children }) {
 export function useProjects() {
   return useContext(ProjectContext);
 }
-
