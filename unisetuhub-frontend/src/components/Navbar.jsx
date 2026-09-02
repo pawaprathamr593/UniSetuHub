@@ -10,6 +10,8 @@ import {
 import { Link, NavLink } from "react-router-dom";
 import { useState } from "react";
 
+import logo from "../assets/logo.png";
+
 import { useTheme } from "../context/ThemeContext";
 
 function Navbar() {
@@ -39,10 +41,9 @@ function Navbar() {
   };
 
   const navClass = ({ isActive }) =>
-    `text-sm font-medium transition ${
-      isActive
-        ? "text-indigo-600 dark:text-indigo-400"
-        : "text-slate-600 hover:text-indigo-600 dark:text-slate-300 dark:hover:text-indigo-400"
+    `text-sm font-medium transition ${isActive
+      ? "text-indigo-600 dark:text-indigo-400"
+      : "text-slate-600 hover:text-indigo-600 dark:text-slate-300 dark:hover:text-indigo-400"
     }`;
 
   return (
@@ -57,9 +58,11 @@ function Navbar() {
           className="flex items-center gap-2"
           onClick={() => setMobileMenu(false)}
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-sm font-bold text-white">
-            W
-          </div>
+          <img
+            src={logo}
+            alt="UniSetuHub"
+            className="h-9 w-9 rounded-lg object-contain"
+          />
 
           <span className="text-xl font-bold tracking-tight">
             UniSetuHub

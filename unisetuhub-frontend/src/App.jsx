@@ -1,4 +1,3 @@
-
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 // ===============================
@@ -35,9 +34,9 @@ import PublicLayout from "./layouts/PublicLayout";
 import Dashboard from "./pages/dashboard/Dashboard";
 import Projects from "./pages/projects/Projects";
 import CreateProject from "./pages/projects/CreateProject";
+
 import EmployeeProjects from "./pages/employees/EmployeeProjects";
 import EmployeeProjectView from "./pages/employees/EmployeeProjectView";
-
 
 import Tasks from "./pages/tasks/Tasks";
 import EmployeeTasks from "./pages/employees/EmployeeTasks";
@@ -45,6 +44,11 @@ import EmployeeTasks from "./pages/employees/EmployeeTasks";
 import Employees from "./pages/employees/Employees";
 import Teams from "./pages/teams/Teams";
 import Settings from "./pages/settings/Settings";
+
+// ===============================
+// COMPANIES
+// ===============================
+import Companies from "./pages/companies/Companies";
 
 // ===============================
 // PROJECT PAGES
@@ -117,6 +121,28 @@ function App() {
               path="/dashboard"
               element={<Dashboard />}
             />
+
+
+            {/* =================================================
+                WEBSITE ADMIN ONLY
+            ================================================= */}
+
+            <Route
+              element={
+                <RoleRoute
+                  allowedRoles={[
+                    "WEBSITE_ADMIN",
+                  ]}
+                />
+              }
+            >
+
+              <Route
+                path="/companies"
+                element={<Companies />}
+              />
+
+            </Route>
 
 
             {/* =================================================
@@ -273,4 +299,3 @@ function App() {
 }
 
 export default App;
-

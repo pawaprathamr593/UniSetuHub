@@ -1,196 +1,85 @@
-import { createContext, useContext, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 
-const CompanyContext = createContext();
+const CompanyContext = createContext(null);
 
-/*
- * =========================================================
- * MOCK COMPANIES
- * =========================================================
- *
- * Temporary frontend data.
- * Later this will come from Spring Boot + MySQL.
- */
-
-const initialCompanies = [
-    {
-        id: "COMP001",
-        name: "UniSetu Technologies",
-        email: "admin@unisetutech.com",
-        phone: "+91 9876543210",
-        address: "Pune, Maharashtra",
-        status: "ACTIVE",
-        headId: "EMP001",
-    },
-
-    {
-        id: "COMP002",
-        name: "TechNova Solutions",
-        email: "contact@technova.com",
-        phone: "+91 9876543211",
-        address: "Mumbai, Maharashtra",
-        status: "ACTIVE",
-        headId: null,
-    },
-];
-
-/*
- * =========================================================
- * COMPANY PROVIDER
- * =========================================================
- */
+const API_URL = "http://localhost:8080";
 
 export function CompanyProvider({ children }) {
+  const [companies, setCompanies] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-    const [companies, setCompanies] =
-        useState(initialCompanies);
+  const fetchCompanies = async () => {
+    setLoading(true);
+    setError("");
 
-    /*
-     * =======================================================
-     * GET COMPANY BY ID
-     * =======================================================
-     */
+    try {
+      const response = await fetch(`${API_URL}/companies`);
 
-    const getCompanyById = (companyId) => {
+      if (!response.ok) {
+        throw new Error("Failed to fetch companies.");
+      }
 
-        if (!companyId) {
-            return null;
-        }
+      const data = await response.json();
 
-        return companies.find(
-            (company) => company.id === companyId
-        ) || null;
-    };
+      setCompanies(Array.isArray(data) ? data : []);
 
-    /*
-     * =======================================================
-     * GET CURRENT USER COMPANY
-     * =======================================================
-     *
-     * AuthContext provides companyId.
-     *
-     * CompanyContext provides actual company details.
-     */
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error("Fetch companies error:", err);
 
-    const getCompanyForUser = (user) => {
+      setError(
+        err?.message || "Unable to load companies."
+      );
 
-        if (!user?.companyId) {
-            return null;
-        }
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        return getCompanyById(user.companyId);
-    };
-
-    /*
-     * =======================================================
-     * ADD COMPANY
-     * =======================================================
-     */
-
-    const addCompany = (company) => {
-
-        const newCompany = {
-            ...company,
-            id: company.id || `COMP${Date.now()}`,
-            status: company.status || "ACTIVE",
-        };
-
-        setCompanies((prev) => [
-            ...prev,
-            newCompany,
-        ]);
-
-        return newCompany;
-    };
-
-    /*
-     * =======================================================
-     * UPDATE COMPANY
-     * =======================================================
-     */
-
-    const updateCompany = (companyId, updatedData) => {
-
-        setCompanies((prev) =>
-            prev.map((company) =>
-                company.id === companyId
-                    ? {
-                        ...company,
-                        ...updatedData,
-                    }
-                    : company
-            )
-        );
-    };
-
-    /*
-     * =======================================================
-     * DELETE COMPANY
-     * =======================================================
-     */
-
-    const deleteCompany = (companyId) => {
-
-        setCompanies((prev) =>
-            prev.filter(
-                (company) => company.id !== companyId
-            )
-        );
-    };
-
-    /*
-     * =======================================================
-     * COMPANY COUNT
-     * =======================================================
-     */
-
-    const companyCount = companies.length;
-
-    /*
-     * =======================================================
-     * CONTEXT VALUE
-     * =======================================================
-     */
-
-    return (
-        <CompanyContext.Provider
-            value={{
-
-                /*
-                 * Company data
-                 */
-
-                companies,
-
-                companyCount,
-
-                /*
-                 * Company operations
-                 */
-
-                getCompanyById,
-
-                getCompanyForUser,
-
-                addCompany,
-
-                updateCompany,
-
-                deleteCompany,
-
-            }}
-        >
-            {children}
-        </CompanyContext.Provider>
+  const getCompanyById = (companyId) => {
+    return companies.find(
+      (company) =>
+        String(company?.id) === String(companyId)
     );
+  };
+
+  useEffect(() => {
+    fetchCompanies();
+  }, []);
+
+  return (
+    <CompanyContext.Provider
+      value={{
+        companies,
+        loading,
+        error,
+        fetchCompanies,
+        getCompanyById,
+        setCompanies,
+      }}
+    >
+      {children}
+    </CompanyContext.Provider>
+  );
 }
 
 /*
- * =========================================================
- * USE COMPANY HOOK
- * =========================================================
+ * Used by Companies.jsx
  */
+export function useCompanies() {
+  return useContext(CompanyContext);
+}
 
+/*
+ * Used by Employees.jsx
+ */
 export function useCompany() {
-
-    return useContext(CompanyContext);
+  return useContext(CompanyContext);
 }
