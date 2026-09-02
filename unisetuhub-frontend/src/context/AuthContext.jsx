@@ -297,34 +297,6 @@ export function AuthProvider({ children }) {
           : [],
     };
 
-    console.log(
-      "========== SAVING USER SESSION =========="
-    );
-
-    console.log(
-      "Authenticated User:",
-      authenticatedUser
-    );
-
-    console.log(
-      "User ID:",
-      authenticatedUser.id
-    );
-
-    console.log(
-      "User Role:",
-      authenticatedUser.role
-    );
-
-    console.log(
-      "Company ID:",
-      authenticatedUser.companyId
-    );
-
-    console.log(
-      "Project IDs:",
-      authenticatedUser.projectIds
-    );
 
     setCurrentUser(
       authenticatedUser
@@ -795,14 +767,7 @@ export function AuthProvider({ children }) {
           ?.trim()
           .toLowerCase();
 
-      console.log(
-        "========== LOGIN =========="
-      );
-
-      console.log(
-        "Email:",
-        cleanEmail
-      );
+      
 
       /*
        * =================================================
@@ -874,9 +839,7 @@ export function AuthProvider({ children }) {
           )
         );
 
-        console.log(
-          "Website Admin login successful."
-        );
+        
 
         return {
           success: true,
@@ -890,10 +853,7 @@ export function AuthProvider({ children }) {
        * =================================================
        */
 
-      console.log(
-        "Calling:",
-        `${API_URL}/users/login`
-      );
+      
 
       const response =
         await fetch(
@@ -926,15 +886,9 @@ export function AuthProvider({ children }) {
       const responseText =
         await response.text();
 
-      console.log(
-        "Login HTTP status:",
-        response.status
-      );
+      
 
-      console.log(
-        "Login backend response:",
-        responseText
-      );
+      
 
       /*
        * =================================================
@@ -1002,10 +956,7 @@ export function AuthProvider({ children }) {
         };
       }
 
-      console.log(
-        "LOGIN USER FROM BACKEND:",
-        user
-      );
+      
 
       /*
        * =================================================

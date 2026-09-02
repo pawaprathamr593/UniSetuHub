@@ -89,34 +89,7 @@ function CreateTaskModal({
       ? projectMembers
       : currentProject?.members || [];
 
-  console.log(
-    "========== CREATE TASK MEMBERS =========="
-  );
 
-  console.log(
-    "PROJECT ID:",
-    projectId
-  );
-
-  console.log(
-    "CURRENT PROJECT:",
-    currentProject
-  );
-
-  console.log(
-    "PROJECT MEMBERS:",
-    currentProject?.members
-  );
-
-  console.log(
-    "AUTH USERS:",
-    users
-  );
-
-  console.log(
-    "MATCHED PROJECT MEMBERS:",
-    projectMembers
-  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">

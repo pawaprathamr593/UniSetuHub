@@ -327,14 +327,14 @@ function Dashboard() {
       : projects;
 
   const companyProjectIds = new Set(
-  companyProjects.map((project) =>
-    normalizeId(project?.id)
-  )
-);
+    companyProjects.map((project) =>
+      normalizeId(project?.id)
+    )
+  );
 
-const companyTasks =
-  currentCompanyId !== ""
-    ? tasks.filter((task) => {
+  const companyTasks =
+    currentCompanyId !== ""
+      ? tasks.filter((task) => {
         const taskProjectId =
           getTaskProjectId(task);
 
@@ -342,7 +342,7 @@ const companyTasks =
           taskProjectId
         );
       })
-    : tasks;
+      : tasks;
 
   const companyMembers =
     currentCompanyId !== ""
@@ -503,19 +503,19 @@ const companyTasks =
       companyTasks;
 
     dashboardEmployees =
-  companyMembers.filter(
-    (member) => {
-      const memberRole =
-        normalizeStatus(
-          member?.role
-        );
+      companyMembers.filter(
+        (member) => {
+          const memberRole =
+            normalizeStatus(
+              member?.role
+            );
 
-      return (
-        memberRole === ROLES.EMPLOYEE ||
-        memberRole === ROLES.PROJECT_LEAD
+          return (
+            memberRole === ROLES.EMPLOYEE ||
+            memberRole === ROLES.PROJECT_LEAD
+          );
+        }
       );
-    }
-  );
   }
 
   else if (
@@ -766,6 +766,30 @@ const companyTasks =
       item.value > 0
   );
 
+  /*
+ * =========================================================
+ * EMPLOYEE TASK BAR CHART
+ * =========================================================
+ */
+
+  const employeeTaskBarData = [
+    {
+      name: "To Do",
+      count: todoTasks,
+    },
+    {
+      name: "In Progress",
+      count: inProgressTasks,
+    },
+    {
+      name: "Review",
+      count: reviewTasks,
+    },
+    {
+      name: "Completed",
+      count: completedTasks,
+    },
+  ];
   /*
    * =========================================================
    * NAME
@@ -1325,132 +1349,208 @@ const companyTasks =
 
 
       {/* =================================================
-          EMPLOYEE ANALYTICS
-      ================================================= */}
+    EMPLOYEE ANALYTICS
+================================================= */}
 
-      <div className="grid gap-6 lg:grid-cols-2">
+<div className="grid gap-6 xl:grid-cols-2">
 
-        <AnalyticsCard
-          title="My Task Status"
-          subtitle="Your current task distribution"
-        >
+  {/* MY TASK STATUS - PIE */}
 
-          {employeeTaskStatusData.length >
-            0 ? (
-            <ResponsiveContainer
-              width="100%"
-              height={280}
-            >
-              <PieChart>
+  <AnalyticsCard
+    title="My Task Status"
+    subtitle="Your current task distribution"
+  >
 
-                <Pie
-                  data={
-                    employeeTaskStatusData
+    {employeeTaskStatusData.length > 0 ? (
+
+      <ResponsiveContainer
+        width="100%"
+        height={280}
+      >
+        <PieChart>
+
+          <Pie
+            data={employeeTaskStatusData}
+            cx="50%"
+            cy="50%"
+            innerRadius={65}
+            outerRadius={95}
+            paddingAngle={3}
+            dataKey="value"
+          >
+
+            {employeeTaskStatusData.map(
+              (entry, index) => (
+                <Cell
+                  key={`employee-${index}`}
+                  fill={
+                    PIE_COLORS[
+                      index % PIE_COLORS.length
+                    ]
                   }
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={65}
-                  outerRadius={95}
-                  paddingAngle={3}
-                  dataKey="value"
-                >
-                  {employeeTaskStatusData.map(
-                    (entry, index) => (
-                      <Cell
-                        key={`employee-${index}`}
-                        fill={
-                          PIE_COLORS[
-                          index %
-                          PIE_COLORS.length
-                          ]
-                        }
-                      />
-                    )
-                  )}
-                </Pie>
-
-                <Tooltip />
-
-                <Legend />
-
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <EmptyChart
-              message="No task data available"
-            />
-          )}
-
-        </AnalyticsCard>
-
-
-        <AnalyticsCard
-          title="My Task Progress"
-          subtitle="Completion across your assigned work"
-        >
-
-          <div className="flex h-[280px] flex-col justify-center">
-
-            <div className="text-center">
-
-              <p className="text-5xl font-bold">
-                {myTasks.length >
-                  0
-                  ? Math.round(
-                    (completedTasks /
-                      myTasks.length) *
-                    100
-                  )
-                  : 0}
-                %
-              </p>
-
-              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                task completion
-              </p>
-
-            </div>
-
-            <div className="mx-auto mt-8 w-full max-w-md">
-
-              <div className="h-4 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-indigo-600 to-purple-600"
-                  style={{
-                    width: `${myTasks.length >
-                        0
-                        ? Math.round(
-                          (completedTasks /
-                            myTasks.length) *
-                          100
-                        )
-                        : 0
-                      }%`,
-                  }}
                 />
+              )
+            )}
 
-              </div>
+          </Pie>
 
-              <div className="mt-3 flex justify-between text-xs text-slate-400">
+          <Tooltip />
 
-                <span>
-                  {completedTasks} completed
-                </span>
+          <Legend />
 
-                <span>
-                  {myTasks.length} total
-                </span>
+        </PieChart>
 
-              </div>
+      </ResponsiveContainer>
 
-            </div>
+    ) : (
 
-          </div>
+      <EmptyChart
+        message="No task data available"
+      />
 
-        </AnalyticsCard>
+    )}
+
+  </AnalyticsCard>
+
+
+  {/* EMPLOYEE TASK BAR GRAPH */}
+
+  <AnalyticsCard
+    title="My Task Breakdown"
+    subtitle="Number of tasks in each status"
+  >
+
+    <ResponsiveContainer
+      width="100%"
+      height={280}
+    >
+
+      <BarChart
+        data={employeeTaskBarData}
+        margin={{
+          top: 10,
+          right: 10,
+          left: -20,
+          bottom: 10,
+        }}
+      >
+
+        <CartesianGrid
+          strokeDasharray="3 3"
+        />
+
+        <XAxis
+          dataKey="name"
+          tick={{
+            fontSize: 11,
+          }}
+        />
+
+        <YAxis
+          allowDecimals={false}
+          tick={{
+            fontSize: 11,
+          }}
+        />
+
+        <Tooltip />
+
+        <Bar
+          dataKey="count"
+          name="Tasks"
+          fill="#6366f1"
+          radius={[
+            5,
+            5,
+            0,
+            0,
+          ]}
+        />
+
+      </BarChart>
+
+    </ResponsiveContainer>
+
+  </AnalyticsCard>
+
+</div>
+
+
+{/* =================================================
+    EMPLOYEE PROGRESS
+================================================= */}
+
+<div className="grid gap-6 lg:grid-cols-1">
+
+  <AnalyticsCard
+    title="My Task Progress"
+    subtitle="Completion across your assigned work"
+  >
+
+    <div className="flex h-[280px] flex-col justify-center">
+
+      <div className="text-center">
+
+        <p className="text-5xl font-bold">
+
+          {myTasks.length > 0
+            ? Math.round(
+                (completedTasks /
+                  myTasks.length) *
+                  100
+              )
+            : 0}
+
+          %
+
+        </p>
+
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+          task completion
+        </p>
 
       </div>
+
+      <div className="mx-auto mt-8 w-full max-w-md">
+
+        <div className="h-4 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-indigo-600 to-purple-600"
+            style={{
+              width: `${
+                myTasks.length > 0
+                  ? Math.round(
+                      (completedTasks /
+                        myTasks.length) *
+                        100
+                    )
+                  : 0
+              }%`,
+            }}
+          />
+
+        </div>
+
+        <div className="mt-3 flex justify-between text-xs text-slate-400">
+
+          <span>
+            {completedTasks} completed
+          </span>
+
+          <span>
+            {myTasks.length} total
+          </span>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </AnalyticsCard>
+
+</div>
 
 
       {/* =================================================

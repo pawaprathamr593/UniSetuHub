@@ -31,16 +31,7 @@ function ProjectBoard() {
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
 
-  /*
-   * =========================================================
-   * DEBUG
-   * =========================================================
-   */
 
-  console.log("========== PROJECT BOARD ==========");
-  console.log("URL PROJECT ID:", projectId);
-  console.log("PROJECTS:", projects);
-  console.log("TASKS:", tasks);
 
   /*
    * =========================================================
@@ -59,7 +50,7 @@ function ProjectBoard() {
       String(item?.id) === String(projectId)
   );
 
-  console.log("CURRENT PROJECT:", project);
+ 
 
   /*
    * =========================================================
@@ -79,11 +70,6 @@ function ProjectBoard() {
     (task) =>
       String(task?.project?.id) ===
       String(projectId)
-  );
-
-  console.log(
-    "PROJECT TASKS:",
-    projectTasks
   );
 
   /*
@@ -260,10 +246,7 @@ function ProjectBoard() {
      * until backend status update logic is added.
      */
 
-    console.log(
-      "Requested status:",
-      backendStatus
-    );
+  
 
     setDraggedTask(null);
   };
@@ -297,25 +280,7 @@ function ProjectBoard() {
   const handleCreateTask = async (
     taskData
   ) => {
-    console.log(
-      "Creating task:",
-      taskData
-    );
-
-    console.log(
-      "Project ID:",
-      projectId
-    );
-
-    const result = await addTask(
-      taskData,
-      projectId
-    );
-
-    console.log(
-      "Create task result:",
-      result
-    );
+    
 
     if (result?.success) {
       setShowCreateTask(false);

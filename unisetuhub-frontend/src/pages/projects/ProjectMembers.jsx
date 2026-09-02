@@ -438,15 +438,6 @@ function ProjectMembers() {
       String(selectedEmployeeId),
     ];
 
-    console.log(
-      "ADDING EMPLOYEE:",
-      selectedEmployeeId
-    );
-
-    console.log(
-      "UPDATED MEMBER IDS:",
-      updatedMemberIds
-    );
 
     /*
      * Preserve existing project data
@@ -483,10 +474,7 @@ function ProjectMembers() {
       }
     );
 
-    console.log(
-      "UPDATE PROJECT RESULT:",
-      result
-    );
+   
 
     if (result?.success) {
       setSelectedEmployeeId("");
@@ -561,15 +549,6 @@ function ProjectMembers() {
           String(memberId)
       );
 
-    console.log(
-      "REMOVING MEMBER:",
-      memberId
-    );
-
-    console.log(
-      "UPDATED MEMBER IDS:",
-      updatedMemberIds
-    );
 
     /*
      * Update project

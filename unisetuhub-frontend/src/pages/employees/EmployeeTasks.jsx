@@ -8,12 +8,18 @@ import {
   X,
   Play,
   Send,
+  History,
+  Loader2,
+  User,
+  CalendarClock,
 } from "lucide-react";
 
 import { useState } from "react";
 
 import { useTasks } from "../../context/TaskContext";
 import { useAuth } from "../../context/AuthContext";
+
+const API_URL = "http://localhost:8080";
 
 function EmployeeTasks() {
   const {
@@ -22,7 +28,10 @@ function EmployeeTasks() {
     submitTask,
   } = useTasks();
 
-  const { currentUser } = useAuth();
+  const {
+    currentUser,
+    users = [],
+  } = useAuth();
 
   /*
    * =========================================================
@@ -45,6 +54,18 @@ function EmployeeTasks() {
 
   /*
    * =========================================================
+   * REVIEW HISTORY STATE
+   * =========================================================
+   */
+
+  const [showHistory, setShowHistory] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [taskHistory, setTaskHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+
+  /*
+   * =========================================================
    * CURRENT USER ID
    * =========================================================
    */
@@ -61,17 +82,17 @@ function EmployeeTasks() {
 
   const myTasks = Array.isArray(tasks)
     ? tasks.filter((task) => {
-        const assigneeId = String(
-          task?.assignee?.id ||
-            task?.assigneeId ||
-            ""
-        );
+      const assigneeId = String(
+        task?.assignee?.id ||
+        task?.assigneeId ||
+        ""
+      );
 
-        return (
-          assigneeId &&
-          assigneeId === currentUserId
-        );
-      })
+      return (
+        assigneeId &&
+        assigneeId === currentUserId
+      );
+    })
     : [];
 
   /*
@@ -87,11 +108,14 @@ function EmployeeTasks() {
 
     const projectId = String(
       project?.id ||
-        task?.projectId ||
-        ""
+      task?.projectId ||
+      ""
     );
 
-    if (projectId && !projectMap.has(projectId)) {
+    if (
+      projectId &&
+      !projectMap.has(projectId)
+    ) {
       projectMap.set(projectId, {
         id: projectId,
         name:
@@ -125,8 +149,8 @@ function EmployeeTasks() {
 
     const taskProjectId = String(
       task?.project?.id ||
-        task?.projectId ||
-        ""
+      task?.projectId ||
+      ""
     );
 
     const search = searchTerm
@@ -238,7 +262,7 @@ function EmployeeTasks() {
       if (!result?.success) {
         alert(
           result?.message ||
-            "Unable to start the task."
+          "Unable to start the task."
         );
       }
     } catch (error) {
@@ -271,7 +295,7 @@ function EmployeeTasks() {
       if (!result?.success) {
         alert(
           result?.message ||
-            "Unable to submit the task for review."
+          "Unable to submit the task for review."
         );
       }
     } catch (error) {
@@ -290,13 +314,243 @@ function EmployeeTasks() {
 
   /*
    * =========================================================
+   * REVIEW HISTORY
+   * =========================================================
+   */
+
+  const handleOpenReviewHistory = async (task) => {
+    if (!task?.id) {
+      return;
+    }
+
+    setSelectedTask(task);
+    setTaskHistory([]);
+    setHistoryError("");
+    setHistoryLoading(true);
+    setShowHistory(true);
+
+    try {
+      const response = await fetch(
+        `${API_URL}/task-history/task/${encodeURIComponent(
+          task.id
+        )}`
+      );
+
+      const responseText =
+        await response.text();
+
+      if (!response.ok) {
+        let message =
+          "Failed to fetch review history.";
+
+        try {
+          const errorData =
+            JSON.parse(responseText);
+
+          message =
+            errorData?.message ||
+            errorData?.error ||
+            responseText ||
+            message;
+        } catch {
+          if (responseText) {
+            message = responseText;
+          }
+        }
+
+        throw new Error(message);
+      }
+
+      let data = [];
+
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        data = [];
+      }
+
+      const reviewHistory =
+        Array.isArray(data)
+          ? data
+            .filter((history) => {
+              const action = String(
+                history?.action || ""
+              ).toUpperCase();
+
+              return (
+                action === "APPROVE" ||
+                action === "REJECT"
+              );
+            })
+            .sort((a, b) => {
+              const dateA = new Date(
+                a?.changedAt || 0
+              ).getTime();
+
+              const dateB = new Date(
+                b?.changedAt || 0
+              ).getTime();
+
+              return dateB - dateA;
+            })
+          : [];
+
+      setTaskHistory(reviewHistory);
+    } catch (error) {
+      console.error(
+        "Fetch review history error:",
+        error
+      );
+
+      setHistoryError(
+        error?.message ||
+        "Unable to load review history."
+      );
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const handleCloseReviewHistory = () => {
+    setShowHistory(false);
+    setSelectedTask(null);
+    setTaskHistory([]);
+    setHistoryError("");
+    setHistoryLoading(false);
+  };
+
+  /*
+   * =========================================================
+   * HISTORY HELPERS
+   * =========================================================
+   */
+
+  const getHistoryStatus = (action) => {
+    const normalizedAction =
+      String(action || "").toUpperCase();
+
+    if (normalizedAction === "APPROVE") {
+      return "APPROVED";
+    }
+
+    if (normalizedAction === "REJECT") {
+      return "REJECTED";
+    }
+
+    return normalizedAction || "REVIEW";
+  };
+
+  const getHistoryStatusClass = (action) => {
+    const normalizedAction =
+      String(action || "").toUpperCase();
+
+    if (normalizedAction === "APPROVE") {
+      return "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400";
+    }
+
+    if (normalizedAction === "REJECT") {
+      return "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400";
+    }
+
+    return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
+  };
+
+  const getHistoryIconClass = (action) => {
+    const normalizedAction =
+      String(action || "").toUpperCase();
+
+    if (normalizedAction === "APPROVE") {
+      return "bg-green-100 text-green-600 dark:bg-green-500/10 dark:text-green-400";
+    }
+
+    if (normalizedAction === "REJECT") {
+      return "bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-400";
+    }
+
+    return "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400";
+  };
+
+  const formatHistoryDate = (value) => {
+    if (!value) {
+      return "Unknown time";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return String(value);
+    }
+
+    return date.toLocaleString(undefined, {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  /*
+   * =========================================================
+   * REVIEWER DISPLAY
+   * =========================================================
+   *
+   * The TaskHistory entity stores changedById.
+   * If the backend later returns reviewer/user details,
+   * these fields are used automatically.
+   *
+   */
+
+  const getReviewer = (history) => {
+    const changedById = String(
+      history?.changedById || ""
+    );
+
+    return users.find(
+      (user) =>
+        String(user?.id || "") === changedById
+    ) || null;
+  };
+
+  const getReviewerName = (history) => {
+    const reviewer = getReviewer(history);
+
+    if (!reviewer) {
+      return "Unknown reviewer";
+    }
+
+    if (reviewer.name) {
+      return reviewer.name;
+    }
+
+    return `${reviewer.firstName || ""} ${reviewer.surname || ""
+      }`.trim() || "Unknown reviewer";
+  };
+
+  const getReviewerRole = (history) => {
+    const reviewer = getReviewer(history);
+
+    if (!reviewer?.role) {
+      return "Unknown role";
+    }
+
+    return String(reviewer.role)
+      .replaceAll("_", " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (letter) =>
+        letter.toUpperCase()
+      );
+  };
+
+  /*
+   * =========================================================
    * STATUS HELPERS
    * =========================================================
    */
 
   const getStatusLabel = (status) => {
     switch (
-      String(status || "").toUpperCase()
+    String(status || "").toUpperCase()
     ) {
       case "TODO":
         return "To Do";
@@ -320,7 +574,7 @@ function EmployeeTasks() {
 
   const getStatusClass = (status) => {
     switch (
-      String(status || "").toUpperCase()
+    String(status || "").toUpperCase()
     ) {
       case "TODO":
         return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
@@ -350,7 +604,7 @@ function EmployeeTasks() {
 
   const getPriorityClass = (priority) => {
     switch (
-      String(priority || "").toUpperCase()
+    String(priority || "").toUpperCase()
     ) {
       case "HIGH":
         return "text-red-600 dark:text-red-400";
@@ -758,6 +1012,19 @@ function EmployeeTasks() {
 
                       </div>
 
+                      {/* REVIEW HISTORY */}
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleOpenReviewHistory(task)
+                        }
+                        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-indigo-500/50 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-400"
+                      >
+                        <History size={14} />
+                        Review History
+                      </button>
+
                       {/* ACTION */}
 
                       {canStart && (
@@ -867,6 +1134,293 @@ function EmployeeTasks() {
         </div>
 
       </div>
+
+      {/* =================================================
+          REVIEW HISTORY MODAL
+      ================================================= */}
+
+      {showHistory && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]"
+          onMouseDown={handleCloseReviewHistory}
+        >
+          <div
+            className="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-950"
+            onMouseDown={(e) =>
+              e.stopPropagation()
+            }
+          >
+
+            {/* MODAL HEADER */}
+
+            <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5 dark:border-slate-800">
+
+              <div className="min-w-0 pr-4">
+
+                <div className="flex items-center gap-2">
+
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+                    <History size={18} />
+                  </div>
+
+                  <div>
+                    <h2 className="font-semibold">
+                      Review History
+                    </h2>
+
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                      Review records for this task
+                    </p>
+                  </div>
+
+                </div>
+
+                {selectedTask && (
+                  <div className="mt-4 rounded-lg bg-slate-50 px-4 py-3 dark:bg-slate-900">
+
+                    <p className="text-xs uppercase tracking-wide text-slate-400">
+                      Task
+                    </p>
+
+                    <p className="mt-1 truncate text-sm font-semibold text-slate-700 dark:text-slate-200">
+                      {selectedTask?.title ||
+                        "Untitled Task"}
+                    </p>
+
+                  </div>
+                )}
+
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCloseReviewHistory}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                aria-label="Close review history"
+              >
+                <X size={18} />
+              </button>
+
+            </div>
+
+            {/* MODAL BODY */}
+
+            <div className="max-h-[65vh] overflow-y-auto p-6">
+
+              {historyLoading ? (
+
+                <div className="flex min-h-[220px] flex-col items-center justify-center text-center">
+
+                  <Loader2
+                    size={28}
+                    className="animate-spin text-indigo-600 dark:text-indigo-400"
+                  />
+
+                  <p className="mt-3 text-sm font-medium">
+                    Loading review history...
+                  </p>
+
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Fetching review records for this task.
+                  </p>
+
+                </div>
+
+              ) : historyError ? (
+
+                <div className="flex min-h-[220px] flex-col items-center justify-center text-center">
+
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-400">
+                    <AlertCircle size={22} />
+                  </div>
+
+                  <h3 className="mt-4 font-medium">
+                    Unable to load review history
+                  </h3>
+
+                  <p className="mt-1 max-w-md text-sm text-slate-500 dark:text-slate-400">
+                    {historyError}
+                  </p>
+
+                </div>
+
+              ) : taskHistory.length === 0 ? (
+
+                <div className="flex min-h-[220px] flex-col items-center justify-center text-center">
+
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800">
+                    <History size={22} />
+                  </div>
+
+                  <h3 className="mt-4 font-medium">
+                    No review history
+                  </h3>
+
+                  <p className="mt-1 max-w-md text-sm text-slate-500 dark:text-slate-400">
+                    This task has not been approved or rejected yet.
+                  </p>
+
+                </div>
+
+              ) : (
+
+                <div className="space-y-4">
+
+                  {taskHistory.map(
+                    (history, index) => {
+
+                      const action =
+                        String(
+                          history?.action || ""
+                        ).toUpperCase();
+
+                      const isApprove =
+                        action === "APPROVE";
+
+                      return (
+                        <div
+                          key={
+                            history?.id ||
+                            `${history?.taskId}-${history?.changedAt}-${index}`
+                          }
+                          className="relative rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+                        >
+
+                          <div className="flex gap-4">
+
+                            {/* ICON */}
+
+                            <div
+                              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${getHistoryIconClass(
+                                action
+                              )}`}
+                            >
+                              {isApprove ? (
+                                <CheckCircle2
+                                  size={19}
+                                />
+                              ) : (
+                                <AlertCircle
+                                  size={19}
+                                />
+                              )}
+                            </div>
+
+                            {/* HISTORY DETAILS */}
+
+                            <div className="min-w-0 flex-1">
+
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+
+                                <span
+                                  className={`rounded-full px-2.5 py-1 text-xs font-semibold ${getHistoryStatusClass(
+                                    action
+                                  )}`}
+                                >
+                                  {getHistoryStatus(
+                                    action
+                                  )}
+                                </span>
+
+                                <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                                  <CalendarClock
+                                    size={13}
+                                  />
+
+                                  {formatHistoryDate(
+                                    history?.changedAt
+                                  )}
+                                </div>
+
+                              </div>
+
+                              {/* REVIEWER */}
+
+                              <div className="mt-3 flex items-start gap-2">
+
+                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                                  <User size={14} />
+                                </div>
+
+                                <div>
+
+                                  <p className="text-[11px] uppercase tracking-wide text-slate-400">
+                                    Reviewed By
+                                  </p>
+
+                                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                                    {getReviewerName(history)}
+                                  </p>
+
+                                  <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+                                    {getReviewerRole(history)}
+                                  </p>
+
+                                </div>
+
+                              </div>
+
+                              {/* COMMENT */}
+
+                              {String(
+                                history?.comment || ""
+                              ).trim() !== "" && (
+                                  <div className="mt-4 rounded-lg bg-slate-50 p-3 dark:bg-slate-950">
+
+                                    <p className="text-[11px] uppercase tracking-wide text-slate-400">
+                                      Review Comment
+                                    </p>
+
+                                    <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                                      {history.comment}
+                                    </p>
+
+                                  </div>
+                                )}
+
+                            </div>
+
+                          </div>
+
+                        </div>
+                      );
+                    }
+                  )}
+
+                </div>
+
+              )}
+
+            </div>
+
+            {/* MODAL FOOTER */}
+
+            <div className="border-t border-slate-200 px-6 py-4 dark:border-slate-800">
+
+              <div className="flex items-center justify-between gap-3">
+
+                <p className="text-xs text-slate-400">
+                  {taskHistory.length}{" "}
+                  {taskHistory.length === 1
+                    ? "review"
+                    : "reviews"}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={handleCloseReviewHistory}
+                  className="rounded-lg bg-slate-900 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+                >
+                  Close
+                </button>
+
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );
