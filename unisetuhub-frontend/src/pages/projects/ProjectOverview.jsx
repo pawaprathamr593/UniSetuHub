@@ -128,7 +128,7 @@ function ProjectOverview() {
 
   const hasAccess = hasProjectAccess(
     normalizedProjectCode ||
-      normalizedProjectId,
+    normalizedProjectId,
     projectCompanyId
   );
 
@@ -173,36 +173,36 @@ function ProjectOverview() {
  * We support all of them.
  */
 
-const projectTasks = Array.isArray(tasks)
-  ? tasks.filter((task) => {
+  const projectTasks = Array.isArray(tasks)
+    ? tasks.filter((task) => {
 
       const taskProjectId = String(
         task?.project?.id ||
-          task?.projectId ||
-          ""
+        task?.projectId ||
+        ""
       )
         .trim()
         .toUpperCase();
 
       const taskProjectCode = String(
         task?.project?.code ||
-          ""
+        ""
       )
         .trim()
         .toUpperCase();
 
       return (
         taskProjectId ===
-          normalizedProjectId ||
+        normalizedProjectId ||
         taskProjectId ===
-          normalizedProjectCode ||
+        normalizedProjectCode ||
         taskProjectCode ===
-          normalizedProjectId ||
+        normalizedProjectId ||
         taskProjectCode ===
-          normalizedProjectCode
+        normalizedProjectCode
       );
     })
-  : [];
+    : [];
 
   /*
    * =========================================================
@@ -252,24 +252,24 @@ const projectTasks = Array.isArray(tasks)
   const progress =
     stats.total > 0
       ? Math.round(
-          (stats.done / stats.total) *
-            100
-        )
+        (stats.done / stats.total) *
+        100
+      )
       : 0;
 
-   /*
-   * =========================================================
-   * PROJECT MEMBERS
-   * =========================================================
-   *
-   * Primary source:
-   *
-   * project.members
-   *
-   * We also add the project leader if the
-   * backend members array doesn't contain them.
-   *
-   */
+  /*
+  * =========================================================
+  * PROJECT MEMBERS
+  * =========================================================
+  *
+  * Primary source:
+  *
+  * project.members
+  *
+  * We also add the project leader if the
+  * backend members array doesn't contain them.
+  *
+  */
 
   const projectMembers = Array.isArray(
     project?.members
@@ -803,7 +803,7 @@ const projectTasks = Array.isArray(tasks)
                   const leaderId =
                     String(
                       resolvedProjectLeader?.id ||
-                        ""
+                      ""
                     );
 
                   return (
@@ -837,13 +837,13 @@ const projectTasks = Array.isArray(tasks)
                           {memberId ===
                             leaderId && (
 
-                            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+                              <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
 
-                              Leader
+                                Leader
 
-                            </span>
+                              </span>
 
-                          )}
+                            )}
 
                         </div>
 
@@ -1021,9 +1021,8 @@ function getUserName(user) {
   }
 
   const fullName =
-    `${user.firstName || ""} ${
-      user.surname || ""
-    }`.trim();
+    `${user.firstName || ""} ${user.surname || ""
+      }`.trim();
 
   return (
     fullName ||

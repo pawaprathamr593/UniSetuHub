@@ -1,11 +1,27 @@
-
 import {
   CheckCircle2,
   Clock3,
   FolderKanban,
   ListTodo,
   ArrowRight,
+  Users,
+  Activity,
+  ClipboardCheck,
 } from "lucide-react";
+
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from "recharts";
 
 import { useAuth } from "../../context/AuthContext";
 import { useTasks } from "../../context/TaskContext";
@@ -69,9 +85,11 @@ function Dashboard() {
 
   const getProjectLeaderId = (project) => {
     return normalizeId(
+      project?.projectLeader?.id ||
       project?.leader?.id ||
       project?.projectLead?.id ||
       project?.lead?.id ||
+      project?.projectLeaderId ||
       project?.leaderId ||
       project?.projectLeadId ||
       project?.leadId
@@ -117,19 +135,23 @@ function Dashboard() {
 
   const myProjects = projects.filter(
     (project) => {
-      const projectId = normalizeId(
-        project?.id
-      );
+      const projectId =
+        normalizeId(project?.id);
 
       const hasProjectIdAccess =
-        currentUser?.projectIds?.some(
+        Array.isArray(
+          currentUser?.projectIds
+        ) &&
+        currentUser.projectIds.some(
           (id) =>
             normalizeId(id) ===
             projectId
-        ) === true;
+        );
 
       const isProjectMember =
-        Array.isArray(project?.members) &&
+        Array.isArray(
+          project?.members
+        ) &&
         project.members.some(
           (member) =>
             normalizeId(member?.id) ===
@@ -147,71 +169,62 @@ function Dashboard() {
    * =========================================================
    * PROJECT LEAD PROJECTS
    * =========================================================
-   *
-   * A project belongs to this Project Lead when:
-   *
-   * 1. The explicit leader/projectLead field matches
-   *    the logged-in user
-   *
-   * OR
-   *
-   * 2. The logged-in user exists in project.members
-   *    with PROJECT_LEAD role.
-   *
    */
 
-  const myLedProjects = projects.filter(
-    (project) => {
-      const projectCompanyId =
-        getCompanyId(project);
+  const myLedProjects =
+    projects.filter(
+      (project) => {
+        const projectCompanyId =
+          getCompanyId(project);
 
-      const sameCompany =
-        currentCompanyId === "" ||
-        projectCompanyId === "" ||
-        projectCompanyId ===
+        const sameCompany =
+          currentCompanyId === "" ||
+          projectCompanyId === "" ||
+          projectCompanyId ===
           currentCompanyId;
 
-      const explicitLeaderId =
-        getProjectLeaderId(project);
+        const explicitLeaderId =
+          getProjectLeaderId(project);
 
-      const isExplicitLeader =
-        explicitLeaderId !== "" &&
-        explicitLeaderId ===
+        const isExplicitLeader =
+          explicitLeaderId !== "" &&
+          explicitLeaderId ===
           currentUserId;
 
-      const isLeaderMember =
-        Array.isArray(project?.members) &&
-        project.members.some(
-          (member) => {
-            const memberId =
-              normalizeId(member?.id);
+        const isLeaderMember =
+          Array.isArray(
+            project?.members
+          ) &&
+          project.members.some(
+            (member) => {
+              const memberId =
+                normalizeId(
+                  member?.id
+                );
 
-            const memberRole =
-              normalizeId(
-                member?.role
-              ).toUpperCase();
+              const memberRole =
+                normalizeId(
+                  member?.role
+                ).toUpperCase();
 
-            return (
-              memberId === currentUserId &&
-              (
+              return (
+                memberId ===
+                currentUserId &&
                 memberRole ===
-                  ROLES.PROJECT_LEAD ||
-                memberRole ===
-                  "PROJECT_LEAD"
-              )
-            );
-          }
+                ROLES.PROJECT_LEAD
+              );
+            }
+          );
+
+        return (
+          sameCompany &&
+          (
+            isExplicitLeader ||
+            isLeaderMember
+          )
         );
-
-      return (
-        sameCompany &&
-        (
-          isExplicitLeader ||
-          isLeaderMember
-        )
-      );
-    }
-  );
+      }
+    );
 
   /*
    * =========================================================
@@ -221,15 +234,21 @@ function Dashboard() {
 
   const employeeProjectIds =
     new Set(
-      myProjects.map((project) =>
-        normalizeId(project?.id)
+      myProjects.map(
+        (project) =>
+          normalizeId(
+            project?.id
+          )
       )
     );
 
   const projectLeadProjectIds =
     new Set(
-      myLedProjects.map((project) =>
-        normalizeId(project?.id)
+      myLedProjects.map(
+        (project) =>
+          normalizeId(
+            project?.id
+          )
       )
     );
 
@@ -251,7 +270,8 @@ function Dashboard() {
         getTaskProjectId(task);
 
       return (
-        assigneeId === currentUserId &&
+        assigneeId ===
+        currentUserId &&
         employeeProjectIds.has(
           projectId
         )
@@ -263,96 +283,76 @@ function Dashboard() {
    * =========================================================
    * PROJECT LEAD TASKS
    * =========================================================
-   *
-   * Only tasks belonging to projects led
-   * by this Project Lead.
-   *
    */
 
-  const myLedTasks = tasks.filter(
-    (task) => {
-      const projectId =
-        getTaskProjectId(task);
+  const myLedTasks =
+    tasks.filter(
+      (task) => {
+        const projectId =
+          getTaskProjectId(task);
 
-      const taskCompanyId =
-        getTaskCompanyId(task);
+        const taskCompanyId =
+          getTaskCompanyId(task);
 
-      const sameCompany =
-        currentCompanyId === "" ||
-        taskCompanyId === "" ||
-        taskCompanyId ===
+        const sameCompany =
+          currentCompanyId === "" ||
+          taskCompanyId === "" ||
+          taskCompanyId ===
           currentCompanyId;
 
-      return (
-        sameCompany &&
-        projectLeadProjectIds.has(
-          projectId
-        )
-      );
-    }
-  );
+        return (
+          sameCompany &&
+          projectLeadProjectIds.has(
+            projectId
+          )
+        );
+      }
+    );
 
   /*
    * =========================================================
-   * COMPANY PROJECTS
+   * COMPANY DATA
    * =========================================================
    */
 
   const companyProjects =
     currentCompanyId !== ""
       ? projects.filter(
-          (project) => {
-            const projectCompanyId =
-              getCompanyId(project);
-
-            return (
-              projectCompanyId ===
-              currentCompanyId
-            );
-          }
-        )
+        (project) =>
+          getCompanyId(
+            project
+          ) ===
+          currentCompanyId
+      )
       : projects;
 
-  /*
-   * =========================================================
-   * COMPANY TASKS
-   * =========================================================
-   */
+  const companyProjectIds = new Set(
+  companyProjects.map((project) =>
+    normalizeId(project?.id)
+  )
+);
 
-  const companyTasks =
-    currentCompanyId !== ""
-      ? tasks.filter(
-          (task) => {
-            const taskCompanyId =
-              getTaskCompanyId(task);
+const companyTasks =
+  currentCompanyId !== ""
+    ? tasks.filter((task) => {
+        const taskProjectId =
+          getTaskProjectId(task);
 
-            return (
-              taskCompanyId ===
-              currentCompanyId
-            );
-          }
-        )
-      : tasks;
-
-  /*
-   * =========================================================
-   * COMPANY MEMBERS
-   * =========================================================
-   */
+        return companyProjectIds.has(
+          taskProjectId
+        );
+      })
+    : tasks;
 
   const companyMembers =
     currentCompanyId !== ""
       ? members.filter(
-          (member) => {
-            const memberCompanyId =
-              getCompanyId(member);
-
-            return (
-              memberCompanyId ===
-              currentCompanyId
-            );
-          }
-        )
+        (member) =>
+          getCompanyId(
+            member
+          ) ===
+          currentCompanyId
+      )
       : members;
 
   /*
@@ -361,94 +361,118 @@ function Dashboard() {
    * =========================================================
    */
 
-  const isActiveStatus = (status) => {
-    return [
+  const normalizeStatus = (status) =>
+    normalizeId(status).toUpperCase();
+
+  const isCompletedStatus = (status) =>
+    [
+      "DONE",
+      "COMPLETED",
+      "ACCEPTED",
+    ].includes(
+      normalizeStatus(status)
+    );
+
+  const isActiveStatus = (status) =>
+    [
       "TODO",
       "IN_PROGRESS",
       "REVIEW",
       "PENDING_APPROVAL",
       "SUBMITTED",
     ].includes(
-      normalizeId(
-        status
-      ).toUpperCase()
+      normalizeStatus(status)
     );
-  };
-
-  const isCompletedStatus =
-    (status) => {
-      return [
-        "DONE",
-        "COMPLETED",
-        "ACCEPTED",
-      ].includes(
-        normalizeId(
-          status
-        ).toUpperCase()
-      );
-    };
 
   /*
    * =========================================================
-   * EMPLOYEE TASK COUNTS
+   * PROJECT STATUS
    * =========================================================
    */
 
-  const todoTasks =
-    myTasks.filter(
-      (task) =>
-        normalizeId(
-          task?.status
-        ).toUpperCase() ===
-        "TODO"
-    ).length;
+  const getProjectStatusGroup = (
+    status
+  ) => {
+    const normalized =
+      normalizeStatus(status);
 
-  const inProgressTasks =
-    myTasks.filter(
-      (task) =>
-        normalizeId(
-          task?.status
-        ).toUpperCase() ===
-        "IN_PROGRESS"
-    ).length;
+    if (
+      [
+        "DONE",
+        "COMPLETED",
+        "CLOSED",
+      ].includes(normalized)
+    ) {
+      return "Completed";
+    }
 
-  const reviewTasks =
-    myTasks.filter(
-      (task) =>
-        [
-          "REVIEW",
-          "PENDING_APPROVAL",
-          "SUBMITTED",
-        ].includes(
-          normalizeId(
-            task?.status
-          ).toUpperCase()
-        )
-    ).length;
+    if (
+      [
+        "ON_HOLD",
+        "HOLD",
+        "PAUSED",
+      ].includes(normalized)
+    ) {
+      return "On Hold";
+    }
 
-  const completedTasks =
-    myTasks.filter(
-      (task) =>
-        isCompletedStatus(
-          task?.status
-        )
-    ).length;
+    if (
+      [
+        "TODO",
+        "PLANNING",
+        "PLANNED",
+        "NEW",
+        "PENDING",
+      ].includes(normalized)
+    ) {
+      return "Planning";
+    }
+
+    return "Active";
+  };
 
   /*
    * =========================================================
-   * ROLE BASED DASHBOARD DATA
+   * TASK STATUS
+   * =========================================================
+   */
+
+  const getTaskStatusLabel = (
+    status
+  ) => {
+    switch (
+    normalizeStatus(status)
+    ) {
+      case "TODO":
+        return "To Do";
+
+      case "IN_PROGRESS":
+        return "In Progress";
+
+      case "REVIEW":
+      case "PENDING_APPROVAL":
+      case "SUBMITTED":
+        return "Review";
+
+      case "DONE":
+      case "COMPLETED":
+      case "ACCEPTED":
+        return "Completed";
+
+      default:
+        return "Other";
+    }
+  };
+
+  /*
+   * =========================================================
+   * ROLE BASED DATA
    * =========================================================
    */
 
   let dashboardProjects = [];
   let dashboardTasks = [];
   let dashboardEmployees = [];
-
-  /*
-   * WEBSITE ADMIN
-   *
-   * Full platform scope.
-   */
 
   if (
     role === ROLES.WEBSITE_ADMIN
@@ -462,18 +486,12 @@ function Dashboard() {
     dashboardEmployees =
       members.filter(
         (member) =>
-          normalizeId(
+          normalizeStatus(
             member?.role
-          ).toUpperCase() ===
+          ) ===
           ROLES.EMPLOYEE
       );
   }
-
-  /*
-   * COMPANY HEAD
-   *
-   * Company scope only.
-   */
 
   else if (
     role === ROLES.COMPANY_HEAD
@@ -485,21 +503,20 @@ function Dashboard() {
       companyTasks;
 
     dashboardEmployees =
-      companyMembers.filter(
-        (member) =>
-          normalizeId(
-            member?.role
-          ).toUpperCase() ===
-          ROLES.EMPLOYEE
-      );
-  }
+  companyMembers.filter(
+    (member) => {
+      const memberRole =
+        normalizeStatus(
+          member?.role
+        );
 
-  /*
-   * PROJECT LEAD
-   *
-   * Only projects led by this user.
-   * Only tasks from those projects.
-   */
+      return (
+        memberRole === ROLES.EMPLOYEE ||
+        memberRole === ROLES.PROJECT_LEAD
+      );
+    }
+  );
+  }
 
   else if (
     role === ROLES.PROJECT_LEAD
@@ -511,16 +528,104 @@ function Dashboard() {
       myLedTasks;
 
     /*
-     * Do not use the whole company employee
-     * count for Project Lead.
+     * Unique employees working
+     * on the Project Lead's projects.
      */
 
-    dashboardEmployees = [];
+    const ledEmployeeIds =
+      new Set();
+
+    myLedProjects.forEach(
+      (project) => {
+        if (
+          Array.isArray(
+            project?.members
+          )
+        ) {
+          project.members.forEach(
+            (member) => {
+              if (
+                normalizeStatus(
+                  member?.role
+                ) ===
+                ROLES.EMPLOYEE
+              ) {
+                const memberId =
+                  normalizeId(
+                    member?.id
+                  );
+
+                if (memberId) {
+                  ledEmployeeIds.add(
+                    memberId
+                  );
+                }
+              }
+            }
+          );
+        }
+      }
+    );
+
+    dashboardEmployees =
+      members.filter(
+        (member) =>
+          ledEmployeeIds.has(
+            normalizeId(
+              member?.id
+            )
+          )
+      );
   }
 
   /*
    * =========================================================
-   * GENERAL DASHBOARD COUNTS
+   * EMPLOYEE TASK COUNTS
+   * =========================================================
+   */
+
+  const todoTasks =
+    myTasks.filter(
+      (task) =>
+        normalizeStatus(
+          task?.status
+        ) === "TODO"
+    ).length;
+
+  const inProgressTasks =
+    myTasks.filter(
+      (task) =>
+        normalizeStatus(
+          task?.status
+        ) ===
+        "IN_PROGRESS"
+    ).length;
+
+  const reviewTasks =
+    myTasks.filter(
+      (task) =>
+        [
+          "REVIEW",
+          "PENDING_APPROVAL",
+          "SUBMITTED",
+        ].includes(
+          normalizeStatus(
+            task?.status
+          )
+        )
+    ).length;
+
+  const completedTasks =
+    myTasks.filter(
+      (task) =>
+        isCompletedStatus(
+          task?.status
+        )
+    ).length;
+
+  /*
+   * =========================================================
+   * GENERAL COUNTS
    * =========================================================
    */
 
@@ -546,30 +651,167 @@ function Dashboard() {
   const employeeCount =
     dashboardEmployees.length;
 
+  const pendingApprovalTasks =
+    dashboardTasks.filter(
+      (task) =>
+        [
+          "PENDING_APPROVAL",
+          "REVIEW",
+          "SUBMITTED",
+        ].includes(
+          normalizeStatus(
+            task?.status
+          )
+        )
+    ).length;
+
+  /*
+   * =========================================================
+   * PROJECT ANALYTICS
+   * =========================================================
+   */
+
+  const projectStatusData =
+    [
+      "Completed",
+      "Active",
+      "Planning",
+      "On Hold",
+    ].map((status) => ({
+      name: status,
+      value:
+        dashboardProjects.filter(
+          (project) =>
+            getProjectStatusGroup(
+              project?.status
+            ) === status
+        ).length,
+    }))
+      .filter(
+        (item) =>
+          item.value > 0
+      );
+
+  /*
+   * =========================================================
+   * TASK ANALYTICS
+   * =========================================================
+   */
+
+  const taskStatusNames = [
+    "To Do",
+    "In Progress",
+    "Review",
+    "Completed",
+    "Other",
+  ];
+
+  const taskStatusData =
+    taskStatusNames
+      .map((status) => ({
+        name: status,
+        count:
+          dashboardTasks.filter(
+            (task) =>
+              getTaskStatusLabel(
+                task?.status
+              ) === status
+          ).length,
+      }))
+      .filter(
+        (item) =>
+          item.count > 0
+      );
+
+  /*
+   * =========================================================
+   * COMPLETION RATE
+   * =========================================================
+   */
+
+  const completionRate =
+    dashboardTasks.length > 0
+      ? Math.round(
+        (totalCompletedTasks /
+          dashboardTasks.length) *
+        100
+      )
+      : 0;
+
+  /*
+   * =========================================================
+   * EMPLOYEE TASK ANALYTICS
+   * =========================================================
+   */
+
+  const employeeTaskStatusData = [
+    {
+      name: "To Do",
+      value: todoTasks,
+    },
+    {
+      name: "In Progress",
+      value: inProgressTasks,
+    },
+    {
+      name: "Review",
+      value: reviewTasks,
+    },
+    {
+      name: "Completed",
+      value: completedTasks,
+    },
+  ].filter(
+    (item) =>
+      item.value > 0
+  );
+
   /*
    * =========================================================
    * NAME
    * =========================================================
    */
 
-  const employeeName =
+  const displayName =
     currentUser?.name ||
-    `${currentUser?.firstName || ""} ${
-      currentUser?.surname || ""
-    }`.trim() ||
-    "Employee";
+    `${currentUser?.firstName || ""} ${currentUser?.surname || ""
+      }`.trim() ||
+    "User";
 
   /*
    * =========================================================
-   * STATUS LABEL
+   * ROLE TITLE
+   * =========================================================
+   */
+
+  const getRoleTitle = () => {
+    switch (role) {
+      case ROLES.WEBSITE_ADMIN:
+        return "Platform overview";
+
+      case ROLES.COMPANY_HEAD:
+        return "Company overview";
+
+      case ROLES.PROJECT_LEAD:
+        return "Your project overview";
+
+      case ROLES.EMPLOYEE:
+        return "Your work overview";
+
+      default:
+        return "Workspace overview";
+    }
+  };
+
+  /*
+   * =========================================================
+   * STATUS CARD
    * =========================================================
    */
 
   const getStatusLabel = (status) => {
     switch (
-      normalizeId(
-        status
-      ).toUpperCase()
+    normalizeStatus(status)
     ) {
       case "TODO":
         return "To Do";
@@ -592,17 +834,9 @@ function Dashboard() {
     }
   };
 
-  /*
-   * =========================================================
-   * STATUS STYLE
-   * =========================================================
-   */
-
   const getStatusStyle = (status) => {
     switch (
-      normalizeId(
-        status
-      ).toUpperCase()
+    normalizeStatus(status)
     ) {
       case "TODO":
         return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
@@ -621,13 +855,13 @@ function Dashboard() {
         return "bg-green-100 text-green-600 dark:bg-green-500/10 dark:text-green-400";
 
       default:
-        return "bg-slate-100 text-slate-600";
+        return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
     }
   };
 
   /*
    * =========================================================
-   * NON-EMPLOYEE DASHBOARD
+   * NON EMPLOYEE DASHBOARD
    * =========================================================
    */
 
@@ -635,41 +869,70 @@ function Dashboard() {
     role !== ROLES.EMPLOYEE
   ) {
     return (
-      <div>
-        <div className="mb-8">
+      <div className="space-y-6">
+
+        {/* =================================================
+            HEADER
+        ================================================= */}
+
+        <div>
           <h1 className="text-2xl font-bold">
-            Dashboard
+            Welcome, {displayName}
           </h1>
 
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Here's what's happening in your workspace.
+            {getRoleTitle()}.
           </p>
         </div>
+
+
+        {/* =================================================
+            SUMMARY CARDS
+        ================================================= */}
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 
           <DashboardCard
+            icon={
+              <FolderKanban
+                size={19}
+              />
+            }
             label="Projects"
-            value={
-              totalProjects
-            }
+            value={totalProjects}
           />
 
           <DashboardCard
+            icon={
+              <Activity
+                size={19}
+              />
+            }
             label="Active Tasks"
-            value={
-              activeTasks
-            }
+            value={activeTasks}
           />
 
           <DashboardCard
-            label="Employees"
-            value={
-              employeeCount
+            icon={
+              <Users
+                size={19}
+              />
             }
+            label={
+              role ===
+                ROLES.PROJECT_LEAD
+                ? "Team Members"
+                : "Employees"
+            }
+            value={employeeCount}
           />
 
           <DashboardCard
+            icon={
+              <CheckCircle2
+                size={19}
+              />
+            }
             label="Completed"
             value={
               totalCompletedTasks
@@ -677,6 +940,309 @@ function Dashboard() {
           />
 
         </div>
+
+
+        {/* =================================================
+            ANALYTICS
+        ================================================= */}
+
+        <div className="grid gap-6 xl:grid-cols-2">
+
+          {/* Project Status */}
+
+          <AnalyticsCard
+            title="Project Status"
+            subtitle={
+              role ===
+                ROLES.PROJECT_LEAD
+                ? "Projects you lead"
+                : role ===
+                  ROLES.COMPANY_HEAD
+                  ? "Projects in your company"
+                  : "Platform project overview"
+            }
+          >
+
+            {projectStatusData.length >
+              0 ? (
+              <ResponsiveContainer
+                width="100%"
+                height={280}
+              >
+                <PieChart>
+
+                  <Pie
+                    data={
+                      projectStatusData
+                    }
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={65}
+                    outerRadius={95}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {projectStatusData.map(
+                      (entry, index) => (
+                        <Cell
+                          key={`project-${index}`}
+                          fill={
+                            PIE_COLORS[
+                            index %
+                            PIE_COLORS.length
+                            ]
+                          }
+                        />
+                      )
+                    )}
+                  </Pie>
+
+                  <Tooltip />
+
+                  <Legend />
+
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyChart
+                message="No project data available"
+              />
+            )}
+
+          </AnalyticsCard>
+
+
+          {/* Task Status */}
+
+          <AnalyticsCard
+            title="Task Status"
+            subtitle={
+              role ===
+                ROLES.PROJECT_LEAD
+                ? "Tasks across your projects"
+                : "Current task distribution"
+            }
+          >
+
+            {taskStatusData.length >
+              0 ? (
+              <ResponsiveContainer
+                width="100%"
+                height={280}
+              >
+                <BarChart
+                  data={
+                    taskStatusData
+                  }
+                  margin={{
+                    top: 10,
+                    right: 10,
+                    left: -20,
+                    bottom: 10,
+                  }}
+                >
+
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                  />
+
+                  <XAxis
+                    dataKey="name"
+                    tick={{
+                      fontSize: 11,
+                    }}
+                  />
+
+                  <YAxis
+                    allowDecimals={
+                      false
+                    }
+                    tick={{
+                      fontSize: 11,
+                    }}
+                  />
+
+                  <Tooltip />
+
+                  <Bar
+                    dataKey="count"
+                    name="Tasks"
+                    fill="#6366f1"
+                    radius={[
+                      5,
+                      5,
+                      0,
+                      0,
+                    ]}
+                  />
+
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyChart
+                message="No task data available"
+              />
+            )}
+
+          </AnalyticsCard>
+
+        </div>
+
+
+        {/* =================================================
+            COMPLETION + PROJECT SNAPSHOT
+        ================================================= */}
+
+        <div className="grid gap-6 lg:grid-cols-3">
+
+          {/* Completion */}
+
+          <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
+
+            <div className="flex items-center justify-between">
+
+              <div>
+
+                <p className="text-sm font-semibold">
+                  Task Completion
+                </p>
+
+                <p className="mt-1 text-xs text-slate-400">
+                  Overall workspace progress
+                </p>
+
+              </div>
+
+              <ClipboardCheck
+                size={20}
+                className="text-indigo-500"
+              />
+
+            </div>
+
+
+            <div className="mt-6">
+
+              <div className="flex items-end justify-between">
+
+                <span className="text-4xl font-bold">
+                  {completionRate}%
+                </span>
+
+                <span className="text-xs text-slate-400">
+                  {totalCompletedTasks} of{" "}
+                  {dashboardTasks.length}
+                </span>
+
+              </div>
+
+              <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 transition-all"
+                  style={{
+                    width: `${completionRate}%`,
+                  }}
+                />
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+          {/* Pending Approval */}
+
+          <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
+
+            <div className="flex items-center justify-between">
+
+              <div>
+
+                <p className="text-sm font-semibold">
+                  Pending Review
+                </p>
+
+                <p className="mt-1 text-xs text-slate-400">
+                  Work waiting for review
+                </p>
+
+              </div>
+
+              <Clock3
+                size={20}
+                className="text-amber-500"
+              />
+
+            </div>
+
+            <p className="mt-6 text-4xl font-bold">
+              {pendingApprovalTasks}
+            </p>
+
+            <button
+              type="button"
+              onClick={() =>
+                navigate("/tasks")
+              }
+              className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400"
+            >
+              View Tasks
+              <ArrowRight size={14} />
+            </button>
+
+          </div>
+
+
+          {/* Quick access */}
+
+          <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
+
+            <div>
+
+              <p className="text-sm font-semibold">
+                Workspace
+              </p>
+
+              <p className="mt-1 text-xs text-slate-400">
+                Quick access
+              </p>
+
+            </div>
+
+            <div className="mt-5 space-y-2">
+
+              <QuickAction
+                label="Projects"
+                icon={
+                  <FolderKanban
+                    size={15}
+                  />
+                }
+                onClick={() =>
+                  navigate("/projects")
+                }
+              />
+
+              <QuickAction
+                label="Tasks"
+                icon={
+                  <ListTodo
+                    size={15}
+                  />
+                }
+                onClick={() =>
+                  navigate("/tasks")
+                }
+              />
+
+            </div>
+
+          </div>
+
+        </div>
+
       </div>
     );
   }
@@ -695,15 +1261,17 @@ function Dashboard() {
       ================================================= */}
 
       <div>
+
         <h1 className="text-2xl font-bold">
-          Welcome, {employeeName}
+          Welcome, {displayName}
         </h1>
 
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Here's an overview of your assigned
-          projects and tasks.
+          Here's an overview of your assigned projects and tasks.
         </p>
+
       </div>
+
 
       {/* =================================================
           SUMMARY
@@ -713,7 +1281,9 @@ function Dashboard() {
 
         <DashboardCard
           icon={
-            <FolderKanban size={19} />
+            <FolderKanban
+              size={19}
+            />
           }
           label="My Projects"
           value={
@@ -723,35 +1293,165 @@ function Dashboard() {
 
         <DashboardCard
           icon={
-            <ListTodo size={19} />
+            <ListTodo
+              size={19}
+            />
           }
           label="To Do"
-          value={
-            todoTasks
-          }
+          value={todoTasks}
         />
 
         <DashboardCard
           icon={
-            <Clock3 size={19} />
+            <Clock3
+              size={19}
+            />
           }
           label="In Progress"
-          value={
-            inProgressTasks
-          }
+          value={inProgressTasks}
         />
 
         <DashboardCard
           icon={
-            <CheckCircle2 size={19} />
+            <CheckCircle2
+              size={19}
+            />
           }
           label="Completed"
-          value={
-            completedTasks
-          }
+          value={completedTasks}
         />
 
       </div>
+
+
+      {/* =================================================
+          EMPLOYEE ANALYTICS
+      ================================================= */}
+
+      <div className="grid gap-6 lg:grid-cols-2">
+
+        <AnalyticsCard
+          title="My Task Status"
+          subtitle="Your current task distribution"
+        >
+
+          {employeeTaskStatusData.length >
+            0 ? (
+            <ResponsiveContainer
+              width="100%"
+              height={280}
+            >
+              <PieChart>
+
+                <Pie
+                  data={
+                    employeeTaskStatusData
+                  }
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={65}
+                  outerRadius={95}
+                  paddingAngle={3}
+                  dataKey="value"
+                >
+                  {employeeTaskStatusData.map(
+                    (entry, index) => (
+                      <Cell
+                        key={`employee-${index}`}
+                        fill={
+                          PIE_COLORS[
+                          index %
+                          PIE_COLORS.length
+                          ]
+                        }
+                      />
+                    )
+                  )}
+                </Pie>
+
+                <Tooltip />
+
+                <Legend />
+
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyChart
+              message="No task data available"
+            />
+          )}
+
+        </AnalyticsCard>
+
+
+        <AnalyticsCard
+          title="My Task Progress"
+          subtitle="Completion across your assigned work"
+        >
+
+          <div className="flex h-[280px] flex-col justify-center">
+
+            <div className="text-center">
+
+              <p className="text-5xl font-bold">
+                {myTasks.length >
+                  0
+                  ? Math.round(
+                    (completedTasks /
+                      myTasks.length) *
+                    100
+                  )
+                  : 0}
+                %
+              </p>
+
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                task completion
+              </p>
+
+            </div>
+
+            <div className="mx-auto mt-8 w-full max-w-md">
+
+              <div className="h-4 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-indigo-600 to-purple-600"
+                  style={{
+                    width: `${myTasks.length >
+                        0
+                        ? Math.round(
+                          (completedTasks /
+                            myTasks.length) *
+                          100
+                        )
+                        : 0
+                      }%`,
+                  }}
+                />
+
+              </div>
+
+              <div className="mt-3 flex justify-between text-xs text-slate-400">
+
+                <span>
+                  {completedTasks} completed
+                </span>
+
+                <span>
+                  {myTasks.length} total
+                </span>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </AnalyticsCard>
+
+      </div>
+
 
       {/* =================================================
           MY PROJECTS
@@ -762,6 +1462,7 @@ function Dashboard() {
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
 
           <div>
+
             <h2 className="font-semibold">
               My Projects
             </h2>
@@ -769,6 +1470,7 @@ function Dashboard() {
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               Projects you are currently assigned to.
             </p>
+
           </div>
 
           <button
@@ -778,16 +1480,19 @@ function Dashboard() {
                 "/my-projects"
               )
             }
-            className="flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+            className="flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400"
           >
             View All
-            <ArrowRight size={14} />
+            <ArrowRight
+              size={14}
+            />
           </button>
 
         </div>
 
+
         {myProjects.length >
-        0 ? (
+          0 ? (
 
           <div className="divide-y divide-slate-200 dark:divide-slate-800">
 
@@ -808,40 +1513,35 @@ function Dashboard() {
 
                 return (
                   <div
-                    key={
-                      project.id
-                    }
-                    className="flex items-center justify-between px-5 py-4 transition hover:bg-slate-50 dark:hover:bg-slate-900/50"
+                    key={project.id}
+                    className="flex items-center justify-between px-5 py-4"
                   >
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
 
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
-                        <FolderKanban size={18} />
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+                        <FolderKanban
+                          size={18}
+                        />
                       </div>
 
-                      <div>
-                        <p className="text-sm font-semibold">
-                          {
-                            project.name
-                          }
+                      <div className="min-w-0">
+
+                        <p className="truncate text-sm font-semibold">
+                          {project.name}
                         </p>
 
                         <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                          {
-                            project.code ||
-                            project.id
-                          }
+                          {project.code ||
+                            project.id}
                         </p>
+
                       </div>
 
                     </div>
 
-                    <span className="text-xs text-slate-400">
-                      {
-                        projectTaskCount
-                      }{" "}
-                      tasks
+                    <span className="shrink-0 text-xs text-slate-400">
+                      {projectTaskCount} tasks
                     </span>
 
                   </div>
@@ -852,27 +1552,20 @@ function Dashboard() {
 
         ) : (
 
-          <div className="px-5 py-10 text-center">
-
-            <FolderKanban
-              size={30}
-              className="mx-auto text-slate-400"
-            />
-
-            <p className="mt-3 text-sm font-medium">
-              No projects assigned
-            </p>
-
-            <p className="mt-1 text-xs text-slate-500">
-              You currently don't have any
-              assigned projects.
-            </p>
-
-          </div>
+          <EmptySection
+            icon={
+              <FolderKanban
+                size={30}
+              />
+            }
+            title="No projects assigned"
+            text="You currently don't have any assigned projects."
+          />
 
         )}
 
       </div>
+
 
       {/* =================================================
           MY TASKS
@@ -883,6 +1576,7 @@ function Dashboard() {
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
 
           <div>
+
             <h2 className="font-semibold">
               My Tasks
             </h2>
@@ -890,6 +1584,7 @@ function Dashboard() {
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               Tasks assigned specifically to you.
             </p>
+
           </div>
 
           <button
@@ -899,16 +1594,19 @@ function Dashboard() {
                 "/my-tasks"
               )
             }
-            className="flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+            className="flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400"
           >
             View All
-            <ArrowRight size={14} />
+            <ArrowRight
+              size={14}
+            />
           </button>
 
         </div>
 
+
         {myTasks.length >
-        0 ? (
+          0 ? (
 
           <div className="divide-y divide-slate-200 dark:divide-slate-800">
 
@@ -924,17 +1622,13 @@ function Dashboard() {
                   <div className="min-w-0">
 
                     <p className="truncate text-sm font-semibold">
-                      {
-                        task.title
-                      }
+                      {task.title}
                     </p>
 
                     <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      {
-                        task.project?.name ||
+                      {task.project?.name ||
                         task.project?.code ||
-                        "Project"
-                      }
+                        "Project"}
                     </p>
 
                   </div>
@@ -944,9 +1638,7 @@ function Dashboard() {
                     {task.dueDate && (
                       <span className="text-xs text-slate-400">
                         Due{" "}
-                        {
-                          task.dueDate
-                        }
+                        {task.dueDate}
                       </span>
                     )}
 
@@ -955,40 +1647,29 @@ function Dashboard() {
                         task.status
                       )}`}
                     >
-                      {
-                        getStatusLabel(
-                          task.status
-                        )
-                      }
+                      {getStatusLabel(
+                        task.status
+                      )}
                     </span>
 
                   </div>
 
                 </div>
-
               ))}
 
           </div>
 
         ) : (
 
-          <div className="px-5 py-10 text-center">
-
-            <CheckCircle2
-              size={30}
-              className="mx-auto text-slate-400"
-            />
-
-            <p className="mt-3 text-sm font-medium">
-              No tasks assigned
-            </p>
-
-            <p className="mt-1 text-xs text-slate-500">
-              You currently don't have any
-              assigned tasks.
-            </p>
-
-          </div>
+          <EmptySection
+            icon={
+              <CheckCircle2
+                size={30}
+              />
+            }
+            title="No tasks assigned"
+            text="You currently don't have any assigned tasks."
+          />
 
         )}
 
@@ -997,6 +1678,22 @@ function Dashboard() {
     </div>
   );
 }
+
+
+/*
+ * =========================================================
+ * COLORS
+ * =========================================================
+ */
+
+const PIE_COLORS = [
+  "#6366f1",
+  "#22c55e",
+  "#f59e0b",
+  "#ef4444",
+  "#8b5cf6",
+];
+
 
 /*
  * =========================================================
@@ -1034,5 +1731,121 @@ function DashboardCard({
   );
 }
 
-export default Dashboard;
 
+/*
+ * =========================================================
+ * ANALYTICS CARD
+ * =========================================================
+ */
+
+function AnalyticsCard({
+  title,
+  subtitle,
+  children,
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
+
+      <div className="mb-2">
+
+        <h2 className="font-semibold">
+          {title}
+        </h2>
+
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          {subtitle}
+        </p>
+
+      </div>
+
+      {children}
+
+    </div>
+  );
+}
+
+
+/*
+ * =========================================================
+ * EMPTY CHART
+ * =========================================================
+ */
+
+function EmptyChart({
+  message,
+}) {
+  return (
+    <div className="flex h-[280px] items-center justify-center text-sm text-slate-400">
+      {message}
+    </div>
+  );
+}
+
+
+/*
+ * =========================================================
+ * QUICK ACTION
+ * =========================================================
+ */
+
+function QuickAction({
+  label,
+  icon,
+  onClick,
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-900"
+    >
+
+      <span className="flex items-center gap-2">
+
+        <span className="text-indigo-500">
+          {icon}
+        </span>
+
+        {label}
+
+      </span>
+
+      <ArrowRight size={14} />
+
+    </button>
+  );
+}
+
+
+/*
+ * =========================================================
+ * EMPTY SECTION
+ * =========================================================
+ */
+
+function EmptySection({
+  icon,
+  title,
+  text,
+}) {
+  return (
+    <div className="px-5 py-10 text-center">
+
+      <div className="text-slate-400">
+        {icon}
+      </div>
+
+      <p className="mt-3 text-sm font-medium">
+        {title}
+      </p>
+
+      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+        {text}
+      </p>
+
+    </div>
+  );
+}
+
+
+export default Dashboard;

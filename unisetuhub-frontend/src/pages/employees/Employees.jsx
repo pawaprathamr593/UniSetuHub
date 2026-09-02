@@ -1,4 +1,3 @@
-
 import {
   Mail,
   Plus,
@@ -14,7 +13,6 @@ import {
 import { useState } from "react";
 
 import { useAuth } from "../../context/AuthContext";
-import { useCompany } from "../../context/CompanyContext";
 
 function Employees() {
   /*
@@ -30,10 +28,6 @@ function Employees() {
     deleteUser,
     fetchUsers,
   } = useAuth();
-
-  const {
-    getCompanyForUser,
-  } = useCompany();
 
   /*
    * =========================================================
@@ -82,11 +76,22 @@ function Employees() {
    * =========================================================
    * CURRENT COMPANY
    * =========================================================
+   *
+   * Support both possible user structures:
+   *
+   * currentUser.company.id
+   * currentUser.companyId
+   *
    */
 
-  const company = getCompanyForUser(currentUser);
+  const company =
+    currentUser?.company || null;
 
-  const companyId = currentUser?.companyId;
+  const companyId =
+    currentUser?.company?.id ||
+    currentUser?.companyId ||
+    currentUser?.company?.companyId ||
+    "";
 
   /*
    * =========================================================
@@ -99,11 +104,15 @@ function Employees() {
 
   const companyUsers = users.filter((user) => {
     const userCompanyId =
-      user.company?.id ||
-      user.companyId ||
-      null;
+      user?.company?.id ||
+      user?.companyId ||
+      user?.company?.companyId ||
+      "";
 
-    return userCompanyId === companyId;
+    return (
+      String(userCompanyId).trim() ===
+      String(companyId).trim()
+    );
   });
 
   /*
@@ -112,26 +121,32 @@ function Employees() {
    * =========================================================
    */
 
-  const filteredUsers = companyUsers.filter((user) => {
-    const fullName =
-      `${user.firstName || ""} ${user.surname || ""}`;
+  const filteredUsers = companyUsers.filter(
+    (user) => {
+      const fullName =
+        `${user.firstName || ""} ${
+          user.surname || ""
+        }`;
 
-    const searchText =
-      search.toLowerCase().trim();
+      const searchText =
+        search.toLowerCase().trim();
 
-    return (
-      fullName.toLowerCase().includes(searchText) ||
-      (user.email || "")
-        .toLowerCase()
-        .includes(searchText) ||
-      (user.id || "")
-        .toLowerCase()
-        .includes(searchText) ||
-      (user.role || "")
-        .toLowerCase()
-        .includes(searchText)
-    );
-  });
+      return (
+        fullName
+          .toLowerCase()
+          .includes(searchText) ||
+        (user.email || "")
+          .toLowerCase()
+          .includes(searchText) ||
+        String(user.id || "")
+          .toLowerCase()
+          .includes(searchText) ||
+        (user.role || "")
+          .toLowerCase()
+          .includes(searchText)
+      );
+    }
+  );
 
   /*
    * =========================================================
@@ -140,7 +155,10 @@ function Employees() {
    */
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const {
+      name,
+      value,
+    } = e.target;
 
     setFormData((prev) => ({
       ...prev,
@@ -148,219 +166,243 @@ function Employees() {
     }));
   };
 
-  
-/*
- * =========================================================
- * EDIT FORM HANDLER
- * =========================================================
- */
+  /*
+   * =========================================================
+   * EDIT FORM HANDLER
+   * =========================================================
+   */
 
-const handleEditChange = (e) => {
-  const { name, value } = e.target;
+  const handleEditChange = (e) => {
+    const {
+      name,
+      value,
+    } = e.target;
 
-  setEditFormData((prev) => ({
-    ...prev,
-    [name]: value,
-  }));
-};
+    setEditFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
 
-/*
- * =========================================================
- * OPEN EDIT MODAL
- * =========================================================
- */
+  /*
+   * =========================================================
+   * OPEN EDIT MODAL
+   * =========================================================
+   */
 
-const handleEdit = (user) => {
-  setEditingUser(user);
+  const handleEdit = (user) => {
+    setEditingUser(user);
 
-  setEditFormData({
-    firstName: user.firstName || "",
-    surname: user.surname || "",
-    email: user.email || "",
-    password: "",
-    role: user.role || "EMPLOYEE",
-  });
-
-  setEditError("");
-
-  setShowEditPassword(false);
-
-  setShowEditModal(true);
-};
-
-/*
- * =========================================================
- * UPDATE EMPLOYEE
- * =========================================================
- */
-
-const handleUpdateEmployee = async (e) => {
-  e.preventDefault();
-
-  setEditError("");
-
-  if (!editingUser?.id) {
-    setEditError("User information is missing.");
-    return;
-  }
-
-  if (
-    !editFormData.firstName.trim() ||
-    !editFormData.surname.trim() ||
-    !editFormData.email.trim()
-  ) {
-    setEditError(
-      "Please fill all required fields."
-    );
-
-    return;
-  }
-
-  if (
-    editFormData.password &&
-    editFormData.password.length < 6
-  ) {
-    setEditError(
-      "Password must be at least 6 characters."
-    );
-
-    return;
-  }
-
-  const userCompanyId =
-    editingUser.company?.id ||
-    editingUser.companyId ||
-    null;
-
-  if (
-    String(userCompanyId) !==
-    String(companyId)
-  ) {
-    setEditError(
-      "You can edit only users from your company."
-    );
-
-    return;
-  }
-
-  try {
-    /*
-     * =====================================================
-     * REQUEST BODY
-     * =====================================================
-     *
-     * Keep the existing password when the Company Head
-     * does not enter a new password.
-     */
-
-    const requestBody = {
-      id: editingUser.id,
-
+    setEditFormData({
       firstName:
-        editFormData.firstName.trim(),
+        user.firstName || "",
 
       surname:
-        editFormData.surname.trim(),
+        user.surname || "",
 
       email:
-        editFormData.email.trim().toLowerCase(),
+        user.email || "",
+
+      password: "",
 
       role:
-        editFormData.role,
+        user.role || "EMPLOYEE",
+    });
 
-      company: {
-        id: companyId,
-      },
+    setEditError("");
 
-      password:
-        editFormData.password.trim() ||
-        editingUser.password ||
-        "",
-    };
+    setShowEditPassword(false);
 
-    console.log(
-      "Updating employee:",
-      requestBody
-    );
+    setShowEditModal(true);
+  };
 
-    const response = await fetch(
-      `http://localhost:8080/users/${encodeURIComponent(
-        editingUser.id
-      )}`,
-      {
-        method: "PUT",
+  /*
+   * =========================================================
+   * UPDATE EMPLOYEE
+   * =========================================================
+   */
 
-        headers: {
-          "Content-Type": "application/json",
-        },
+  const handleUpdateEmployee = async (e) => {
+    e.preventDefault();
 
-        body: JSON.stringify(requestBody),
-      }
-    );
+    setEditError("");
 
-    const responseText =
-      await response.text();
-
-    if (!response.ok) {
-      let message =
-        "Failed to update employee.";
-
-      try {
-        const data =
-          JSON.parse(responseText);
-
-        message =
-          data?.message ||
-          data?.error ||
-          responseText ||
-          message;
-      } catch {
-        if (responseText) {
-          message = responseText;
-        }
-      }
-
-      setEditError(message);
+    if (!editingUser?.id) {
+      setEditError(
+        "User information is missing."
+      );
 
       return;
     }
 
-    /*
-     * Refresh users from backend
-     */
+    if (
+      !editFormData.firstName.trim() ||
+      !editFormData.surname.trim() ||
+      !editFormData.email.trim()
+    ) {
+      setEditError(
+        "Please fill all required fields."
+      );
 
-    await fetchUsers();
+      return;
+    }
 
-    /*
-     * Close modal
-     */
+    if (
+      editFormData.password &&
+      editFormData.password.length < 6
+    ) {
+      setEditError(
+        "Password must be at least 6 characters."
+      );
 
-    setShowEditModal(false);
+      return;
+    }
 
-    setEditingUser(null);
+    const userCompanyId =
+      editingUser?.company?.id ||
+      editingUser?.companyId ||
+      editingUser?.company?.companyId ||
+      "";
 
-    setEditFormData({
-      firstName: "",
-      surname: "",
-      email: "",
-      password: "",
-      role: "EMPLOYEE",
-    });
+    if (
+      String(userCompanyId).trim() !==
+      String(companyId).trim()
+    ) {
+      setEditError(
+        "You can edit only users from your company."
+      );
 
-    setShowEditPassword(false);
+      return;
+    }
 
-  } catch (error) {
-    console.error(
-      "Update employee error:",
-      error
-    );
+    try {
+      /*
+       * =====================================================
+       * REQUEST BODY
+       * =====================================================
+       *
+       * Keep the existing password when the Company Head
+       * does not enter a new password.
+       */
 
-    setEditError(
-      "Unable to connect to the server."
-    );
-  }
-};
+      const requestBody = {
+        id: editingUser.id,
 
+        firstName:
+          editFormData.firstName.trim(),
+
+        surname:
+          editFormData.surname.trim(),
+
+        email:
+          editFormData.email
+            .trim()
+            .toLowerCase(),
+
+        role:
+          editFormData.role,
+
+        company: {
+          id: companyId,
+        },
+
+        password:
+          editFormData.password.trim() ||
+          editingUser.password ||
+          "",
+      };
+
+      console.log(
+        "Updating employee:",
+        requestBody
+      );
+
+      const response = await fetch(
+        `http://localhost:8080/users/${encodeURIComponent(
+          editingUser.id
+        )}`,
+        {
+          method: "PUT",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify(
+            requestBody
+          ),
+        }
+      );
+
+      const responseText =
+        await response.text();
+
+      if (!response.ok) {
+        let message =
+          "Failed to update employee.";
+
+        try {
+          const data =
+            JSON.parse(
+              responseText
+            );
+
+          message =
+            data?.message ||
+            data?.error ||
+            responseText ||
+            message;
+        } catch {
+          if (responseText) {
+            message =
+              responseText;
+          }
+        }
+
+        setEditError(message);
+
+        return;
+      }
+
+      /*
+       * =====================================================
+       * REFRESH USERS FROM BACKEND
+       * =====================================================
+       */
+
+      await fetchUsers();
+
+      /*
+       * =====================================================
+       * CLOSE MODAL
+       * =====================================================
+       */
+
+      setShowEditModal(false);
+
+      setEditingUser(null);
+
+      setEditFormData({
+        firstName: "",
+        surname: "",
+        email: "",
+        password: "",
+        role: "EMPLOYEE",
+      });
+
+      setShowEditPassword(false);
+    } catch (error) {
+      console.error(
+        "Update employee error:",
+        error
+      );
+
+      setEditError(
+        "Unable to connect to the server."
+      );
+    }
+  };
 
   /*
    * =========================================================
@@ -390,7 +432,9 @@ const handleUpdateEmployee = async (e) => {
       return;
     }
 
-    if (formData.password.length < 6) {
+    if (
+      formData.password.length < 6
+    ) {
       setError(
         "Password must be at least 6 characters."
       );
@@ -413,11 +457,23 @@ const handleUpdateEmployee = async (e) => {
      */
 
     const result = await addUser({
-      firstName: formData.firstName.trim(),
-      surname: formData.surname.trim(),
-      email: formData.email.trim().toLowerCase(),
-      password: formData.password,
-      role: formData.role,
+      firstName:
+        formData.firstName.trim(),
+
+      surname:
+        formData.surname.trim(),
+
+      email:
+        formData.email
+          .trim()
+          .toLowerCase(),
+
+      password:
+        formData.password,
+
+      role:
+        formData.role,
+
       companyId,
     });
 
@@ -428,7 +484,7 @@ const handleUpdateEmployee = async (e) => {
     if (!result?.success) {
       setError(
         result?.message ||
-          "Failed to create employee."
+        "Failed to create employee."
       );
 
       return;
@@ -466,7 +522,9 @@ const handleUpdateEmployee = async (e) => {
      * Do not allow company head to delete themselves.
      */
 
-    if (user.id === currentUser?.id) {
+    if (
+      user.id === currentUser?.id
+    ) {
       return;
     }
 
@@ -477,28 +535,34 @@ const handleUpdateEmployee = async (e) => {
      */
 
     const userCompanyId =
-      user.company?.id ||
-      user.companyId ||
-      null;
+      user?.company?.id ||
+      user?.companyId ||
+      user?.company?.companyId ||
+      "";
 
-    if (userCompanyId !== companyId) {
+    if (
+      String(userCompanyId).trim() !==
+      String(companyId).trim()
+    ) {
       return;
     }
 
-    const confirmed = window.confirm(
-      `Are you sure you want to remove ${user.firstName} ${user.surname}?`
-    );
+    const confirmed =
+      window.confirm(
+        `Are you sure you want to remove ${user.firstName} ${user.surname}?`
+      );
 
     if (!confirmed) {
       return;
     }
 
-    const result = await deleteUser(user.id);
+    const result =
+      await deleteUser(user.id);
 
     if (!result?.success) {
       alert(
         result?.message ||
-          "Failed to delete employee."
+        "Failed to delete employee."
       );
     }
   };
@@ -598,10 +662,12 @@ const handleUpdateEmployee = async (e) => {
 
   const getInitials = (user) => {
     const first =
-      user.firstName?.charAt(0) || "";
+      user.firstName?.charAt(0) ||
+      "";
 
     const last =
-      user.surname?.charAt(0) || "";
+      user.surname?.charAt(0) ||
+      "";
 
     return `${first}${last}`.toUpperCase();
   };
@@ -628,6 +694,7 @@ const handleUpdateEmployee = async (e) => {
           </div>
 
           <div>
+
             <h1 className="text-2xl font-bold">
               Employees
             </h1>
@@ -635,6 +702,7 @@ const handleUpdateEmployee = async (e) => {
             <p className="text-sm text-slate-500 dark:text-slate-400">
               Manage employees in your company.
             </p>
+
           </div>
 
         </div>
@@ -749,105 +817,114 @@ const handleUpdateEmployee = async (e) => {
             USERS
         ================================================= */}
 
-        {filteredUsers.map((user) => (
-          <div
-            key={user.id}
-            className="grid gap-4 border-b border-slate-100 px-6 py-4 last:border-b-0 dark:border-slate-800 md:grid-cols-5 md:items-center"
-          >
+        {filteredUsers.map(
+          (user) => (
+            <div
+              key={user.id}
+              className="grid gap-4 border-b border-slate-100 px-6 py-4 last:border-b-0 dark:border-slate-800 md:grid-cols-5 md:items-center"
+            >
 
-            {/* Name */}
+              {/* Name */}
 
-            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3">
 
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
-                {getInitials(user)}
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+                  {getInitials(user)}
+                </div>
+
+                <div>
+
+                  <p className="text-sm font-medium">
+                    {user.firstName}{" "}
+                    {user.surname}
+                  </p>
+
+                  <p className="text-xs text-slate-400">
+                    Employee ID: {user.id}
+                  </p>
+
+                </div>
+
               </div>
+
+              {/* Email */}
+
+              <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+
+                <Mail size={15} />
+
+                {user.email}
+
+              </div>
+
+              {/* Role */}
 
               <div>
 
-                <p className="text-sm font-medium">
-                  {user.firstName}{" "}
-                  {user.surname}
-                </p>
+                <span
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${getRoleStyle(
+                    user.role
+                  )}`}
+                >
+                  {getRoleLabel(
+                    user.role
+                  )}
+                </span>
 
-                <p className="text-xs text-slate-400">
-                  Employee ID: {user.id}
-                </p>
+              </div>
+
+              {/* Status */}
+
+              <div>
+
+                <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 dark:bg-green-500/10 dark:text-green-400">
+                  Active
+                </span>
+
+              </div>
+
+              {/* Action */}
+
+              <div className="flex justify-start gap-2 md:justify-end">
+
+                {/* Edit */}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleEdit(user)
+                  }
+                  className="rounded-lg p-2 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-500 dark:hover:bg-indigo-500/10"
+                  title="Edit employee"
+                >
+                  <Pencil
+                    size={16}
+                  />
+                </button>
+
+                {/* Delete */}
+
+                {user.id !==
+                  currentUser?.id && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleDelete(user)
+                    }
+                    className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
+                    title="Remove employee"
+                  >
+                    <Trash2
+                      size={16}
+                    />
+                  </button>
+                )}
 
               </div>
 
             </div>
-
-            {/* Email */}
-
-            <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-
-              <Mail size={15} />
-
-              {user.email}
-
-            </div>
-
-            {/* Role */}
-
-            <div>
-
-              <span
-                className={`rounded-full px-2.5 py-1 text-xs font-medium ${getRoleStyle(
-                  user.role
-                )}`}
-              >
-                {getRoleLabel(user.role)}
-              </span>
-
-            </div>
-
-            {/* Status */}
-
-            <div>
-
-              <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 dark:bg-green-500/10 dark:text-green-400">
-                Active
-              </span>
-
-            </div>
-
-            {/* Action */}
-
-            <div className="flex justify-start gap-2 md:justify-end">
-
-              {/* Edit */}
-
-              <button
-                type="button"
-                onClick={() =>
-                  handleEdit(user)
-                }
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-500 dark:hover:bg-indigo-500/10"
-                title="Edit employee"
-              >
-                <Pencil size={16} />
-              </button>
-
-              {/* Delete */}
-
-              {user.id !== currentUser?.id && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    handleDelete(user)
-                  }
-                  className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
-                  title="Remove employee"
-                >
-                  <Trash2 size={16} />
-                </button>
-              )}
-
-            </div>
-
-          </div>
-        ))}
+          )
+        )}
 
       </div>
 
@@ -889,7 +966,9 @@ const handleUpdateEmployee = async (e) => {
             {/* Modal Body */}
 
             <form
-              onSubmit={handleAddEmployee}
+              onSubmit={
+                handleAddEmployee
+              }
               className="space-y-5 p-6"
             >
 
@@ -906,8 +985,12 @@ const handleUpdateEmployee = async (e) => {
                   <input
                     type="text"
                     name="firstName"
-                    value={formData.firstName}
-                    onChange={handleChange}
+                    value={
+                      formData.firstName
+                    }
+                    onChange={
+                      handleChange
+                    }
                     placeholder="First name"
                     required
                     className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-950"
@@ -924,8 +1007,12 @@ const handleUpdateEmployee = async (e) => {
                   <input
                     type="text"
                     name="surname"
-                    value={formData.surname}
-                    onChange={handleChange}
+                    value={
+                      formData.surname
+                    }
+                    onChange={
+                      handleChange
+                    }
                     placeholder="Surname"
                     required
                     className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-950"
@@ -946,8 +1033,12 @@ const handleUpdateEmployee = async (e) => {
                 <input
                   type="email"
                   name="email"
-                  value={formData.email}
-                  onChange={handleChange}
+                  value={
+                    formData.email
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="employee@company.com"
                   required
                   className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-950"
@@ -972,8 +1063,12 @@ const handleUpdateEmployee = async (e) => {
                         : "password"
                     }
                     name="password"
-                    value={formData.password}
-                    onChange={handleChange}
+                    value={
+                      formData.password
+                    }
+                    onChange={
+                      handleChange
+                    }
                     placeholder="Minimum 6 characters"
                     required
                     className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 pr-11 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-950"
@@ -989,9 +1084,13 @@ const handleUpdateEmployee = async (e) => {
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                   >
                     {showPassword ? (
-                      <EyeOff size={17} />
+                      <EyeOff
+                        size={17}
+                      />
                     ) : (
-                      <Eye size={17} />
+                      <Eye
+                        size={17}
+                      />
                     )}
                   </button>
 
@@ -1009,11 +1108,14 @@ const handleUpdateEmployee = async (e) => {
 
                 <select
                   name="role"
-                  value={formData.role}
-                  onChange={handleChange}
+                  value={
+                    formData.role
+                  }
+                  onChange={
+                    handleChange
+                  }
                   className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-950"
                 >
-
                   <option value="EMPLOYEE">
                     Employee
                   </option>
@@ -1021,7 +1123,6 @@ const handleUpdateEmployee = async (e) => {
                   <option value="PROJECT_LEAD">
                     Project Lead
                   </option>
-
                 </select>
 
               </div>
@@ -1060,7 +1161,9 @@ const handleUpdateEmployee = async (e) => {
 
                 <button
                   type="button"
-                  onClick={closeModal}
+                  onClick={
+                    closeModal
+                  }
                   className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
                   Cancel
@@ -1110,7 +1213,9 @@ const handleUpdateEmployee = async (e) => {
 
               <button
                 type="button"
-                onClick={closeEditModal}
+                onClick={
+                  closeEditModal
+                }
                 className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
               >
                 <X size={19} />
@@ -1121,7 +1226,9 @@ const handleUpdateEmployee = async (e) => {
             {/* Modal Body */}
 
             <form
-              onSubmit={handleUpdateEmployee}
+              onSubmit={
+                handleUpdateEmployee
+              }
               className="space-y-5 p-6"
             >
 
@@ -1138,8 +1245,12 @@ const handleUpdateEmployee = async (e) => {
                   <input
                     type="text"
                     name="firstName"
-                    value={editFormData.firstName}
-                    onChange={handleEditChange}
+                    value={
+                      editFormData.firstName
+                    }
+                    onChange={
+                      handleEditChange
+                    }
                     placeholder="First name"
                     required
                     className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-950"
@@ -1156,8 +1267,12 @@ const handleUpdateEmployee = async (e) => {
                   <input
                     type="text"
                     name="surname"
-                    value={editFormData.surname}
-                    onChange={handleEditChange}
+                    value={
+                      editFormData.surname
+                    }
+                    onChange={
+                      handleEditChange
+                    }
                     placeholder="Surname"
                     required
                     className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-950"
@@ -1178,8 +1293,12 @@ const handleUpdateEmployee = async (e) => {
                 <input
                   type="email"
                   name="email"
-                  value={editFormData.email}
-                  onChange={handleEditChange}
+                  value={
+                    editFormData.email
+                  }
+                  onChange={
+                    handleEditChange
+                  }
                   placeholder="employee@company.com"
                   required
                   className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-950"
@@ -1204,8 +1323,12 @@ const handleUpdateEmployee = async (e) => {
                         : "password"
                     }
                     name="password"
-                    value={editFormData.password}
-                    onChange={handleEditChange}
+                    value={
+                      editFormData.password
+                    }
+                    onChange={
+                      handleEditChange
+                    }
                     placeholder="Leave blank to keep current password"
                     className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 pr-11 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-950"
                   />
@@ -1220,9 +1343,13 @@ const handleUpdateEmployee = async (e) => {
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                   >
                     {showEditPassword ? (
-                      <EyeOff size={17} />
+                      <EyeOff
+                        size={17}
+                      />
                     ) : (
-                      <Eye size={17} />
+                      <Eye
+                        size={17}
+                      />
                     )}
                   </button>
 
@@ -1240,11 +1367,14 @@ const handleUpdateEmployee = async (e) => {
 
                 <select
                   name="role"
-                  value={editFormData.role}
-                  onChange={handleEditChange}
+                  value={
+                    editFormData.role
+                  }
+                  onChange={
+                    handleEditChange
+                  }
                   className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-950"
                 >
-
                   <option value="EMPLOYEE">
                     Employee
                   </option>
@@ -1252,7 +1382,6 @@ const handleUpdateEmployee = async (e) => {
                   <option value="PROJECT_LEAD">
                     Project Lead
                   </option>
-
                 </select>
 
               </div>
@@ -1291,7 +1420,9 @@ const handleUpdateEmployee = async (e) => {
 
                 <button
                   type="button"
-                  onClick={closeEditModal}
+                  onClick={
+                    closeEditModal
+                  }
                   className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
                   Cancel
@@ -1301,7 +1432,9 @@ const handleUpdateEmployee = async (e) => {
                   type="submit"
                   className="flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500"
                 >
-                  <Pencil size={17} />
+                  <Pencil
+                    size={17}
+                  />
                   Save Changes
                 </button>
 
@@ -1319,4 +1452,3 @@ const handleUpdateEmployee = async (e) => {
 }
 
 export default Employees;
-

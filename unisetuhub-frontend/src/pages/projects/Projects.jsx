@@ -51,8 +51,8 @@ function Projects() {
 
   const currentCompanyId = String(
     currentUser?.company?.id ||
-      currentUser?.companyId ||
-      ""
+    currentUser?.companyId ||
+    ""
   );
 
   console.log("USER ID:", currentUserId);
@@ -299,23 +299,23 @@ function Projects() {
         const projectTasks =
           Array.isArray(tasks)
             ? tasks.filter((task) => {
-                const taskProjectId =
-                  task?.projectId
-                    ?.toString()
-                    .toUpperCase();
+              const taskProjectId =
+                task?.projectId
+                  ?.toString()
+                  .toUpperCase();
 
-                const projectId =
-                  project?.id
-                    ?.toString()
-                    .toUpperCase();
+              const projectId =
+                project?.id
+                  ?.toString()
+                  .toUpperCase();
 
-                return (
-                  taskProjectId ===
-                    projectCode ||
-                  taskProjectId ===
-                    projectId
-                );
-              })
+              return (
+                taskProjectId ===
+                projectCode ||
+                taskProjectId ===
+                projectId
+              );
+            })
             : [];
 
         /*
@@ -351,10 +351,10 @@ function Projects() {
         const progress =
           totalTasks > 0
             ? Math.round(
-                (completedTasks /
-                  totalTasks) *
-                  100
-              )
+              (completedTasks /
+                totalTasks) *
+              100
+            )
             : 0;
 
         /*
@@ -365,7 +365,7 @@ function Projects() {
 
         const status =
           totalTasks > 0 &&
-          completedTasks ===
+            completedTasks ===
             totalTasks
             ? "completed"
             : "active";
@@ -441,7 +441,7 @@ function Projects() {
         const matchesStatus =
           statusFilter === "all" ||
           project.status ===
-            statusFilter;
+          statusFilter;
 
         return (
           matchesSearch &&
@@ -458,9 +458,9 @@ function Projects() {
 
   const canCreateProject =
     currentUserRole ===
-      "WEBSITE_ADMIN" ||
+    "WEBSITE_ADMIN" ||
     currentUserRole ===
-      "COMPANY_HEAD";
+    "COMPANY_HEAD";
 
   /*
    * =========================================================
@@ -581,7 +581,7 @@ function Projects() {
       <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
 
         {filteredProjects.length >
-        0 ? (
+          0 ? (
 
           filteredProjects.map(
             (project) => {
@@ -597,13 +597,12 @@ function Projects() {
 
               const leaderName =
                 leader?.firstName ||
-                leader?.surname
-                  ? `${leader?.firstName || ""} ${
-                      leader?.surname || ""
+                  leader?.surname
+                  ? `${leader?.firstName || ""} ${leader?.surname || ""
                     }`.trim()
                   : leader?.name ||
-                    leader?.email ||
-                    "Not assigned";
+                  leader?.email ||
+                  "Not assigned";
 
               /*
                * =================================================
@@ -641,16 +640,15 @@ function Projects() {
                     </div>
 
                     <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                        project?.status ===
-                        "completed"
+                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${project?.status ===
+                          "completed"
                           ? "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400"
                           : "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400"
-                      }`}
+                        }`}
                     >
 
                       {project?.status ===
-                      "completed"
+                        "completed"
                         ? "Completed"
                         : "Active"}
 
@@ -757,7 +755,7 @@ function Projects() {
                         0}{" "}
 
                       {project?.memberCount ===
-                      1
+                        1
                         ? "member"
                         : "members"}
 
@@ -767,53 +765,52 @@ function Projects() {
 
                     {members.length >
                       0 && (
-                      <div className="mt-2 flex flex-wrap gap-1">
+                        <div className="mt-2 flex flex-wrap gap-1">
 
-                        {members
-                          .slice(0, 3)
-                          .map(
-                            (
-                              member
-                            ) => {
+                          {members
+                            .slice(0, 3)
+                            .map(
+                              (
+                                member
+                              ) => {
 
-                              const memberName =
-                                `${member?.firstName || ""} ${
-                                  member?.surname || ""
-                                }`.trim() ||
-                                member?.name ||
-                                member?.email ||
-                                "User";
+                                const memberName =
+                                  `${member?.firstName || ""} ${member?.surname || ""
+                                    }`.trim() ||
+                                  member?.name ||
+                                  member?.email ||
+                                  "User";
 
-                              return (
-                                <span
-                                  key={
-                                    member?.id ||
-                                    member?.email
-                                  }
-                                  className="rounded-full bg-white px-2 py-1 text-[10px] text-slate-600 dark:bg-slate-700 dark:text-slate-300"
-                                >
-                                  {
-                                    memberName
-                                  }
-                                </span>
-                              );
-                            }
-                          )}
+                                return (
+                                  <span
+                                    key={
+                                      member?.id ||
+                                      member?.email
+                                    }
+                                    className="rounded-full bg-white px-2 py-1 text-[10px] text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                                  >
+                                    {
+                                      memberName
+                                    }
+                                  </span>
+                                );
+                              }
+                            )}
 
-                        {members.length >
-                          3 && (
-                          <span className="rounded-full bg-white px-2 py-1 text-[10px] text-slate-500 dark:bg-slate-700 dark:text-slate-400">
+                          {members.length >
+                            3 && (
+                              <span className="rounded-full bg-white px-2 py-1 text-[10px] text-slate-500 dark:bg-slate-700 dark:text-slate-400">
 
-                            +
-                            {members.length -
-                              3}{" "}
-                            more
+                                +
+                                {members.length -
+                                  3}{" "}
+                                more
 
-                          </span>
-                        )}
+                              </span>
+                            )}
 
-                      </div>
-                    )}
+                        </div>
+                      )}
 
                   </div>
 
@@ -904,11 +901,8 @@ function Projects() {
 
                     <Link
                       to={`/projects/${project?.id}`}
-                      className="text-sm font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
                     >
-
                       Open Project →
-
                     </Link>
 
                   </div>
