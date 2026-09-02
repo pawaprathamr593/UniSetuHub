@@ -65,7 +65,14 @@ export function AuthProvider({ children }) {
     }
 
     try {
-      return JSON.parse(savedUser);
+      const parsedUser = JSON.parse(savedUser);
+
+      return {
+        ...parsedUser,
+        role: String(parsedUser?.role || "")
+          .trim()
+          .toUpperCase(),
+      };
     } catch (error) {
       console.error(
         "Failed to restore logged-in user:",
@@ -144,9 +151,8 @@ export function AuthProvider({ children }) {
       return user.name;
     }
 
-    return `${user.firstName || ""} ${
-      user.surname || ""
-    }`.trim();
+    return `${user.firstName || ""} ${user.surname || ""
+      }`.trim();
   };
 
   /*
@@ -257,7 +263,9 @@ export function AuthProvider({ children }) {
         user.email || "",
 
       role:
-        user.role || "",
+        String(user.role || "")
+          .trim()
+          .toUpperCase(),
 
       /*
        * Keep complete company object.
@@ -822,9 +830,9 @@ export function AuthProvider({ children }) {
 
       if (
         initialAdmin.email.toLowerCase() ===
-          cleanEmail &&
+        cleanEmail &&
         initialAdmin.password ===
-          password
+        password
       ) {
         const authenticatedUser = {
           id:
@@ -1198,9 +1206,8 @@ export function AuthProvider({ children }) {
 
     return (
       currentUser.name ||
-      `${currentUser.firstName || ""} ${
-        currentUser.surname || ""
-      }`.trim()
+      `${currentUser.firstName || ""} ${currentUser.surname || ""
+        }`.trim()
     );
   };
 

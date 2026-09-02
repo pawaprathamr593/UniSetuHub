@@ -1,9 +1,11 @@
+
 import {
   Mail,
   MoreHorizontal,
   Plus,
   UserPlus,
   Users,
+  Search,
 } from "lucide-react";
 
 import { useState } from "react";
@@ -12,6 +14,7 @@ import { useParams } from "react-router-dom";
 import { useMembers } from "../../context/MemberContext";
 import { useProjects } from "../../context/ProjectContext";
 import { useTasks } from "../../context/TaskContext";
+import { useAuth } from "../../context/AuthContext";
 
 function ProjectMembers() {
   const { projectId } = useParams();
@@ -25,21 +28,31 @@ function ProjectMembers() {
     updateProject,
   } = useProjects();
 
-  /*
-   * =========================================================
-   * TASK CONTEXT
-   * =========================================================
-   */
-
   const {
     tasks = [],
   } = useTasks();
+
+  const {
+    users = [],
+  } = useAuth();
 
   const [showAddMember, setShowAddMember] =
     useState(false);
 
   const [selectedEmployeeId, setSelectedEmployeeId] =
     useState("");
+
+  /*
+   * =========================================================
+   * ADD MEMBER SEARCH / FILTER
+   * =========================================================
+   */
+
+  const [memberSearch, setMemberSearch] =
+    useState("");
+
+  const [memberFilter, setMemberFilter] =
+    useState("all");
 
   /*
    * =========================================================
@@ -50,9 +63,9 @@ function ProjectMembers() {
   const currentProject = projects.find(
     (project) =>
       String(project?.id).toUpperCase() ===
-        String(projectId).toUpperCase() ||
+      String(projectId).toUpperCase() ||
       String(project?.code).toUpperCase() ===
-        String(projectId).toUpperCase()
+      String(projectId).toUpperCase()
   );
 
   /*
@@ -80,14 +93,6 @@ function ProjectMembers() {
    * =========================================================
    * PROJECT MEMBER IDS
    * =========================================================
-   *
-   * Project stores:
-   *
-   * members: [
-   *   { id: "EMP002" },
-   *   { id: "EMP003" }
-   * ]
-   *
    */
 
   const projectMemberIds =
@@ -99,10 +104,6 @@ function ProjectMembers() {
    * =========================================================
    * CURRENT PROJECT MEMBERS
    * =========================================================
-   *
-   * Get complete employee profiles from
-   * MemberContext.
-   *
    */
 
   const projectMembers = members.filter(
@@ -114,66 +115,62 @@ function ProjectMembers() {
 
   /*
    * =========================================================
+   * PROJECT COMPANY ID
+   * =========================================================
+   */
+
+  const projectCompanyId = String(
+    currentProject?.company?.id ||
+    currentProject?.companyId ||
+    ""
+  );
+
+  /*
+   * =========================================================
+   * COMPANY EMPLOYEES
+   * =========================================================
+   *
+   * Only EMPLOYEE users belonging to the
+   * current project's company.
+   *
+   */
+
+  const companyEmployees = users.filter(
+    (user) => {
+      const userCompanyId = String(
+        user?.company?.id ||
+        user?.companyId ||
+        ""
+      );
+
+      const role = String(
+        user?.role || ""
+      ).toUpperCase();
+
+      return (
+        userCompanyId === projectCompanyId &&
+        role === "EMPLOYEE"
+      );
+    }
+  );
+
+  /*
+   * =========================================================
    * AVAILABLE EMPLOYEES
    * =========================================================
    *
-   * Show all employees who are NOT already
+   * Company employees who are not already
    * members of this project.
    *
    */
 
   const availableEmployees =
-    members.filter(
-      (member) =>
+    companyEmployees.filter(
+      (employee) =>
         !projectMemberIds.includes(
-          String(member?.id)
+          String(employee?.id)
         )
     );
-
-  /*
-   * =========================================================
-   * DEBUG
-   * =========================================================
-   */
-
-  console.log(
-    "========== PROJECT MEMBERS =========="
-  );
-
-  console.log(
-    "URL PROJECT ID:",
-    projectId
-  );
-
-  console.log(
-    "CURRENT PROJECT:",
-    currentProject
-  );
-
-  console.log(
-    "PROJECT MEMBER IDS:",
-    projectMemberIds
-  );
-
-  console.log(
-    "ALL EMPLOYEES:",
-    members
-  );
-
-  console.log(
-    "PROJECT MEMBERS:",
-    projectMembers
-  );
-
-  console.log(
-    "AVAILABLE EMPLOYEES:",
-    availableEmployees
-  );
-
-  console.log(
-    "ALL TASKS:",
-    tasks
-  );
 
   /*
    * =========================================================
@@ -191,9 +188,8 @@ function ProjectMembers() {
     }
 
     const fullName =
-      `${member.firstName || ""} ${
-        member.surname || ""
-      }`.trim();
+      `${member.firstName || ""} ${member.surname || ""
+        }`.trim();
 
     return (
       fullName ||
@@ -252,15 +248,6 @@ function ProjectMembers() {
    * =========================================================
    * GET MEMBER TASK COUNT
    * =========================================================
-   *
-   * Handles both:
-   *
-   * task.assignee.id
-   *
-   * and:
-   *
-   * task.assigneeId
-   *
    */
 
   const getMemberTaskCount = (memberId) => {
@@ -272,36 +259,15 @@ function ProjectMembers() {
       String(memberId).trim();
 
     return tasks.filter((task) => {
-
-      /*
-       * Assignee can be an object:
-       *
-       * task.assignee = {
-       *   id: "EMP001"
-       * }
-       */
-
       const assigneeObjectId =
         typeof task?.assignee === "object"
           ? task?.assignee?.id
           : null;
 
-      /*
-       * Assignee can also directly be an ID:
-       *
-       * task.assignee = "EMP001"
-       */
-
       const assigneeDirectId =
         typeof task?.assignee !== "object"
           ? task?.assignee
           : null;
-
-      /*
-       * Or backend may provide:
-       *
-       * task.assigneeId
-       */
 
       const assigneeId =
         task?.assigneeId;
@@ -319,6 +285,124 @@ function ProjectMembers() {
       );
     }).length;
   };
+
+  /*
+   * =========================================================
+   * EMPLOYEE PROJECTS
+   * =========================================================
+   */
+
+  const getEmployeeProjects = (employeeId) => {
+    return projects.filter((project) => {
+      const projectMembers =
+        Array.isArray(project?.members)
+          ? project.members
+          : [];
+
+      return projectMembers.some(
+        (member) =>
+          String(
+            member?.id || member
+          ) === String(employeeId)
+      );
+    });
+  };
+
+  /*
+   * =========================================================
+   * EMPLOYEE FILTER HELPERS
+   * =========================================================
+   */
+
+  const isEmployeeUnassigned = (
+    employeeId
+  ) => {
+    const employeeProjects =
+      getEmployeeProjects(employeeId);
+
+    return employeeProjects.length === 0;
+  };
+
+  const hasOnlyCompletedProjects = (
+    employeeId
+  ) => {
+    const employeeProjects =
+      getEmployeeProjects(employeeId);
+
+    return (
+      employeeProjects.length > 0 &&
+      employeeProjects.every(
+        (project) =>
+          String(
+            project?.status || ""
+          ).toUpperCase() ===
+          "COMPLETED"
+      )
+    );
+  };
+
+  /*
+   * =========================================================
+   * FILTERED AVAILABLE EMPLOYEES
+   * =========================================================
+   */
+
+  const filteredAvailableEmployees =
+    availableEmployees.filter(
+      (employee) => {
+        const searchText =
+          memberSearch
+            .trim()
+            .toLowerCase();
+
+        const name =
+          getMemberName(
+            employee
+          ).toLowerCase();
+
+        const email =
+          String(
+            employee?.email || ""
+          ).toLowerCase();
+
+        /*
+         * SEARCH
+         */
+
+        const matchesSearch =
+          !searchText ||
+          name.includes(searchText) ||
+          email.includes(searchText);
+
+        if (!matchesSearch) {
+          return false;
+        }
+
+        /*
+         * FILTER
+         */
+
+        if (
+          memberFilter ===
+          "unassigned"
+        ) {
+          return isEmployeeUnassigned(
+            employee.id
+          );
+        }
+
+        if (
+          memberFilter ===
+          "completed"
+        ) {
+          return hasOnlyCompletedProjects(
+            employee.id
+          );
+        }
+
+        return true;
+      }
+    );
 
   /*
    * =========================================================
@@ -347,7 +431,6 @@ function ProjectMembers() {
 
     /*
      * Add selected employee ID
-     * to existing project members.
      */
 
     const updatedMemberIds = [
@@ -366,10 +449,7 @@ function ProjectMembers() {
     );
 
     /*
-     * IMPORTANT:
-     *
-     * Preserve all existing project data.
-     *
+     * Preserve existing project data
      */
 
     const result = await updateProject(
@@ -410,11 +490,13 @@ function ProjectMembers() {
 
     if (result?.success) {
       setSelectedEmployeeId("");
+      setMemberSearch("");
+      setMemberFilter("all");
       setShowAddMember(false);
     } else {
       alert(
         result?.message ||
-          "Failed to add member."
+        "Failed to add member."
       );
     }
   };
@@ -444,8 +526,8 @@ function ProjectMembers() {
 
     const leaderId = String(
       currentProject?.projectLeader?.id ||
-        currentProject?.projectLeaderId ||
-        ""
+      currentProject?.projectLeaderId ||
+      ""
     );
 
     if (
@@ -533,7 +615,7 @@ function ProjectMembers() {
     if (!result?.success) {
       alert(
         result?.message ||
-          "Failed to remove member."
+        "Failed to remove member."
       );
     }
   };
@@ -546,7 +628,22 @@ function ProjectMembers() {
 
   const handleOpenAddMember = () => {
     setSelectedEmployeeId("");
+    setMemberSearch("");
+    setMemberFilter("all");
     setShowAddMember(true);
+  };
+
+  /*
+   * =========================================================
+   * CLOSE ADD MEMBER MODAL
+   * =========================================================
+   */
+
+  const handleCloseAddMember = () => {
+    setSelectedEmployeeId("");
+    setMemberSearch("");
+    setMemberFilter("all");
+    setShowAddMember(false);
   };
 
   /*
@@ -588,14 +685,8 @@ function ProjectMembers() {
 
         <button
           type="button"
-          onClick={
-            handleOpenAddMember
-          }
-          disabled={
-            availableEmployees.length ===
-            0
-          }
-          className="flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-400"
+          onClick={handleOpenAddMember}
+          className="flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500"
         >
           <Plus size={18} />
           Add Member
@@ -619,19 +710,14 @@ function ProjectMembers() {
 
         <SummaryCard
           icon={<UserPlus size={19} />}
-          label="Developers"
+          label="Employees"
           value={
             projectMembers.filter(
               (member) =>
                 String(
                   member?.role || ""
-                )
-                  .toLowerCase()
-                  .includes(
-                    "developer"
-                  ) ||
-                member?.role ===
-                  "EMPLOYEE"
+                ).toUpperCase() ===
+                "EMPLOYEE"
             ).length
           }
         />
@@ -649,8 +735,10 @@ function ProjectMembers() {
                   .includes(
                     "admin"
                   ) ||
-                member?.role ===
-                  "WEBSITE_ADMIN"
+                String(
+                  member?.role || ""
+                ).toUpperCase() ===
+                "PROJECT_LEAD"
             ).length
           }
         />
@@ -678,7 +766,7 @@ function ProjectMembers() {
         </div>
 
         {projectMembers.length >
-        0 ? (
+          0 ? (
 
           <div className="divide-y divide-slate-200 dark:divide-slate-800">
 
@@ -705,8 +793,8 @@ function ProjectMembers() {
                     currentProject
                       ?.projectLeader
                       ?.id ||
-                      currentProject?.projectLeaderId ||
-                      ""
+                    currentProject?.projectLeaderId ||
+                    ""
                   );
 
                 const isLeader =
@@ -714,12 +802,6 @@ function ProjectMembers() {
                     member?.id
                   ) ===
                   leaderId;
-
-                /*
-                 * =================================================
-                 * MEMBER TASK COUNT
-                 * =================================================
-                 */
 
                 const taskCount =
                   getMemberTaskCount(
@@ -735,7 +817,7 @@ function ProjectMembers() {
                     className="flex flex-col gap-4 px-5 py-4 transition hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between dark:hover:bg-slate-900/50"
                   >
 
-                    {/* Member */}
+                    {/* MEMBER */}
 
                     <div className="flex items-center gap-3">
 
@@ -768,7 +850,7 @@ function ProjectMembers() {
 
                     </div>
 
-                    {/* Role */}
+                    {/* ROLE */}
 
                     <div className="min-w-[150px]">
 
@@ -782,7 +864,7 @@ function ProjectMembers() {
 
                     </div>
 
-                    {/* Tasks */}
+                    {/* TASKS */}
 
                     <div className="min-w-[130px]">
 
@@ -796,7 +878,7 @@ function ProjectMembers() {
 
                     </div>
 
-                    {/* Actions */}
+                    {/* ACTIONS */}
 
                     <div className="flex items-center">
 
@@ -863,29 +945,53 @@ function ProjectMembers() {
 
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
 
-          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+          <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
 
-            {/* Header */}
+            {/* =================================================
+                HEADER
+            ================================================= */}
 
             <div className="border-b border-slate-200 p-5 dark:border-slate-800">
 
-              <h2 className="text-lg font-semibold">
-                Add Project Member
-              </h2>
+              <div className="flex items-start justify-between gap-4">
 
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Select an employee to add
-                to{" "}
-                <span className="font-medium">
-                  {currentProject.code ||
-                    currentProject.id}
-                </span>
-                .
-              </p>
+                <div>
+
+                  <h2 className="text-lg font-semibold">
+                    Add Project Member
+                  </h2>
+
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    Select an employee from your
+                    company to add to{" "}
+                    <span className="font-medium">
+                      {currentProject.code ||
+                        currentProject.id}
+                    </span>
+                    .
+                  </p>
+
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    handleCloseAddMember
+                  }
+                  className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                >
+                  <span className="text-lg">
+                    ×
+                  </span>
+                </button>
+
+              </div>
 
             </div>
 
-            {/* Form */}
+            {/* =================================================
+                FORM
+            ================================================= */}
 
             <form
               onSubmit={
@@ -895,118 +1001,230 @@ function ProjectMembers() {
 
               <div className="space-y-4 p-5">
 
-                {/* Employee */}
-
-                <div>
-
-                  <label className="mb-2 block text-sm font-medium">
-                    Select Employee
-                  </label>
-
-                  {availableEmployees.length >
+                {availableEmployees.length >
                   0 ? (
 
-                    <select
-                      value={
-                        selectedEmployeeId
-                      }
-                      onChange={(e) =>
-                        setSelectedEmployeeId(
-                          e.target.value
-                        )
-                      }
-                      required
-                      className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-950"
-                    >
+                  <>
+                    {/* SEARCH + FILTER */}
 
-                      <option value="">
-                        -- Select Employee --
-                      </option>
+                    <div className="flex flex-col gap-2 sm:flex-row">
 
-                      {availableEmployees.map(
-                        (employee) => {
+                      {/* SEARCH */}
 
-                          const name =
-                            getMemberName(
-                              employee
-                            );
+                      <div className="relative flex-1">
 
-                          return (
-                            <option
-                              key={
-                                employee.id
-                              }
-                              value={
-                                employee.id
-                              }
-                            >
-                              {name}{" "}
-                              —{" "}
-                              {employee.email}{" "}
-                              —{" "}
-                              {getRoleLabel(
-                                employee.role
-                              )}
-                            </option>
-                          );
+                        <Search
+                          size={16}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                        />
+
+                        <input
+                          type="text"
+                          value={
+                            memberSearch
+                          }
+                          onChange={(e) =>
+                            setMemberSearch(
+                              e.target.value
+                            )
+                          }
+                          placeholder="Search employees by name or email..."
+                          className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-950 dark:placeholder:text-slate-600"
+                        />
+
+                      </div>
+
+                      {/* FILTER */}
+
+                      <select
+                        value={
+                          memberFilter
                         }
-                      )}
+                        onChange={(e) =>
+                          setMemberFilter(
+                            e.target.value
+                          )
+                        }
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-950 sm:w-48"
+                      >
+                        <option value="all">
+                          All Employees
+                        </option>
 
-                    </select>
+                        <option value="unassigned">
+                          Unassigned
+                        </option>
 
-                  ) : (
+                        <option value="completed">
+                          Project Completed
+                        </option>
+                      </select>
 
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">
-                      All employees are
-                      already members of
-                      this project.
                     </div>
 
-                  )}
+                    {/* RESULTS */}
 
-                </div>
+                    <div className="max-h-72 overflow-y-auto rounded-lg border border-slate-300 dark:border-slate-700">
 
-                {/* Selected Employee Preview */}
+                      {filteredAvailableEmployees.length >
+                        0 ? (
 
-                {selectedEmployeeId && (
-                  <SelectedEmployeePreview
-                    employee={members.find(
-                      (member) =>
-                        String(
-                          member.id
-                        ) ===
-                        String(
-                          selectedEmployeeId
+                        filteredAvailableEmployees.map(
+                          (employee) => {
+
+                            const selected =
+                              String(
+                                selectedEmployeeId
+                              ) ===
+                              String(
+                                employee.id
+                              );
+
+                            return (
+                              <button
+                                key={
+                                  employee.id
+                                }
+                                type="button"
+                                onClick={() =>
+                                  setSelectedEmployeeId(
+                                    employee.id
+                                  )
+                                }
+                                className={`flex w-full items-center gap-3 border-b border-slate-100 px-4 py-3 text-left transition last:border-b-0 dark:border-slate-800 ${selected
+                                    ? "bg-indigo-50 dark:bg-indigo-500/10"
+                                    : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                                  }`}
+                              >
+
+                                {/* SELECT INDICATOR */}
+
+                                <div
+                                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${selected
+                                      ? "border-indigo-600 bg-indigo-600 text-white"
+                                      : "border-slate-300 dark:border-slate-600"
+                                    }`}
+                                >
+                                  {selected && (
+                                    <span className="text-xs font-bold">
+                                      ✓
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* AVATAR */}
+
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+                                  {getInitials(
+                                    employee
+                                  )}
+                                </div>
+
+                                {/* EMPLOYEE */}
+
+                                <div className="min-w-0 flex-1">
+
+                                  <p className="truncate text-sm font-medium">
+                                    {getMemberName(
+                                      employee
+                                    )}
+                                  </p>
+
+                                  <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                                    {employee.email ||
+                                      "No email"}
+                                  </p>
+
+                                </div>
+
+                              </button>
+                            );
+                          }
                         )
+
+                      ) : (
+
+                        <div className="p-5 text-center text-sm text-slate-400">
+                          No employees match your
+                          search or filter.
+                        </div>
+
+                      )}
+
+                    </div>
+
+                    {/* RESULT COUNT */}
+
+                    <div className="flex items-center justify-between text-xs text-slate-400">
+
+                      <span>
+                        Showing{" "}
+                        {
+                          filteredAvailableEmployees.length
+                        }{" "}
+                        of{" "}
+                        {
+                          availableEmployees.length
+                        }{" "}
+                        available employees
+                      </span>
+
+                      {selectedEmployeeId && (
+                        <span className="font-medium text-indigo-600 dark:text-indigo-400">
+                          1 employee selected
+                        </span>
+                      )}
+
+                    </div>
+
+                    {/* SELECTED EMPLOYEE PREVIEW */}
+
+                    {selectedEmployeeId && (
+                      <SelectedEmployeePreview
+                        employee={
+                          availableEmployees.find(
+                            (employee) =>
+                              String(
+                                employee.id
+                              ) ===
+                              String(
+                                selectedEmployeeId
+                              )
+                          )
+                        }
+                        getMemberName={
+                          getMemberName
+                        }
+                        getInitials={
+                          getInitials
+                        }
+                      />
                     )}
-                    getMemberName={
-                      getMemberName
-                    }
-                    getInitials={
-                      getInitials
-                    }
-                    getRoleLabel={
-                      getRoleLabel
-                    }
-                  />
+                  </>
+
+                ) : (
+
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-5 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">
+                    All employees from this
+                    company are already
+                    members of this project.
+                  </div>
+
                 )}
 
               </div>
 
-              {/* Footer */}
+              {/* =================================================
+                  FOOTER
+              ================================================= */}
 
               <div className="flex justify-end gap-3 border-t border-slate-200 p-5 dark:border-slate-800">
 
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowAddMember(
-                      false
-                    );
-                    setSelectedEmployeeId(
-                      ""
-                    );
-                  }}
+                  onClick={
+                    handleCloseAddMember
+                  }
                   className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium dark:border-slate-700"
                 >
                   Cancel
@@ -1046,7 +1264,6 @@ function SelectedEmployeePreview({
   employee,
   getMemberName,
   getInitials,
-  getRoleLabel,
 }) {
   if (!employee) {
     return null;
@@ -1068,13 +1285,12 @@ function SelectedEmployeePreview({
           </p>
 
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            {employee.email}
+            {employee.email ||
+              "No email"}
           </p>
 
           <p className="mt-1 text-xs font-medium text-indigo-600 dark:text-indigo-400">
-            {getRoleLabel(
-              employee.role
-            )}
+            Employee
           </p>
 
         </div>
@@ -1120,3 +1336,4 @@ function SummaryCard({
 }
 
 export default ProjectMembers;
+

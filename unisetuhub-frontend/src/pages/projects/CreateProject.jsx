@@ -1,4 +1,10 @@
-import { ArrowLeft, FolderKanban, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  FolderKanban,
+  Users,
+  Search,
+} from "lucide-react";
+
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 
@@ -29,6 +35,26 @@ function CreateProject() {
   });
 
   const [loading, setLoading] = useState(false);
+
+  /*
+   * =========================================================
+   * MEMBER SEARCH
+   * =========================================================
+   */
+
+  const [memberSearch, setMemberSearch] = useState("");
+
+  /*
+   * =========================================================
+   * MEMBER FILTER
+   * =========================================================
+   *
+   * all       -> All employees
+   * unassigned -> Employees with no projects
+   * completed  -> Employees whose projects are completed
+   */
+
+  const [memberFilter, setMemberFilter] = useState("all");
 
   /*
    * =========================================================
@@ -96,24 +122,30 @@ function CreateProject() {
    * =========================================================
    * PROJECT LEADERS
    * =========================================================
+   *
+   * Only PROJECT_LEAD users can be selected as
+   * the project leader.
    */
 
   const projectLeaders = companyUsers.filter(
     (user) =>
-      user.role === "PROJECT_LEAD" ||
-      user.role === "EMPLOYEE"
+      String(user.role || "").toUpperCase() ===
+      "PROJECT_LEAD"
   );
 
   /*
    * =========================================================
    * PROJECT MEMBERS
    * =========================================================
+   *
+   * Only EMPLOYEE users can be selected as
+   * project members.
    */
 
   const projectMembers = companyUsers.filter(
     (user) =>
-      user.role === "PROJECT_LEAD" ||
-      user.role === "EMPLOYEE"
+      String(user.role || "").toUpperCase() ===
+      "EMPLOYEE"
   );
 
   /*
@@ -136,6 +168,105 @@ function CreateProject() {
 
   /*
    * =========================================================
+   * EMPLOYEE PROJECTS
+   * =========================================================
+   */
+
+  const getEmployeeProjects = (employeeId) => {
+    return projects.filter((project) => {
+      const members = Array.isArray(project.members)
+        ? project.members
+        : [];
+
+      return members.some(
+        (member) =>
+          String(member?.id || member) ===
+          String(employeeId)
+      );
+    });
+  };
+
+  /*
+   * =========================================================
+   * EMPLOYEE AVAILABILITY FILTERS
+   * =========================================================
+   */
+
+  const isEmployeeUnassigned = (employeeId) => {
+    const employeeProjects =
+      getEmployeeProjects(employeeId);
+
+    return employeeProjects.length === 0;
+  };
+
+  const hasOnlyCompletedProjects = (employeeId) => {
+    const employeeProjects =
+      getEmployeeProjects(employeeId);
+
+    /*
+     * Employee must have at least one project
+     * and every project must be completed.
+     */
+
+    return (
+      employeeProjects.length > 0 &&
+      employeeProjects.every(
+        (project) =>
+          String(project.status || "")
+            .toUpperCase() === "COMPLETED"
+      )
+    );
+  };
+
+  /*
+   * =========================================================
+   * FILTERED PROJECT MEMBERS
+   * =========================================================
+   *
+   * Search by employee name/email and then
+   * apply the selected project filter.
+   */
+
+  const filteredProjectMembers =
+    projectMembers.filter((user) => {
+      const searchText =
+        memberSearch.toLowerCase().trim();
+
+      const name =
+        getUserName(user).toLowerCase();
+
+      const email =
+        (user.email || "").toLowerCase();
+
+      /*
+       * SEARCH FILTER
+       */
+
+      const matchesSearch =
+        name.includes(searchText) ||
+        email.includes(searchText);
+
+      if (!matchesSearch) {
+        return false;
+      }
+
+      /*
+       * PROJECT FILTER
+       */
+
+      if (memberFilter === "unassigned") {
+        return isEmployeeUnassigned(user.id);
+      }
+
+      if (memberFilter === "completed") {
+        return hasOnlyCompletedProjects(user.id);
+      }
+
+      return true;
+    });
+
+  /*
+   * =========================================================
    * HANDLE INPUT CHANGE
    * =========================================================
    */
@@ -155,6 +286,9 @@ function CreateProject() {
         memberIds: [],
       }));
 
+      setMemberSearch("");
+      setMemberFilter("all");
+
       return;
     }
 
@@ -167,6 +301,10 @@ function CreateProject() {
         const oldLeaderId =
           current.projectLeaderId;
 
+        /*
+         * Remove previous leader from member list.
+         */
+
         let newMembers =
           current.memberIds.filter(
             (id) =>
@@ -175,7 +313,7 @@ function CreateProject() {
           );
 
         /*
-         * Add new leader automatically
+         * Add new leader automatically.
          */
 
         if (value) {
@@ -225,18 +363,6 @@ function CreateProject() {
             String(id) ===
             String(userId)
         );
-
-      /*
-       * Leader cannot be removed
-       */
-
-      if (
-        exists &&
-        String(userId) ===
-          String(current.projectLeaderId)
-      ) {
-        return current;
-      }
 
       /*
        * Remove member
@@ -393,7 +519,7 @@ function CreateProject() {
 
     const validMemberIds =
       finalMemberIds.filter((memberId) =>
-        projectMembers.some(
+        companyUsers.some(
           (user) =>
             String(user.id) ===
             String(memberId)
@@ -676,7 +802,7 @@ function CreateProject() {
                   onChange={handleChange}
                   rows="4"
                   placeholder="Describe what this project is about..."
-                  className="w-full resize-none rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-950 dark:placeholder:text-slate-600"
+                  className="w-full resize-none rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-950 dark:placeholder:text-slate-600"
                 />
 
               </div>
@@ -792,7 +918,7 @@ function CreateProject() {
                       >
                         {getUserName(user)}
                         {" — "}
-                        {user.role}
+                        {user.email || "No email"}
                       </option>
                     )
                   )}
@@ -817,31 +943,84 @@ function CreateProject() {
 
                 </div>
 
-                <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-300 dark:border-slate-700">
+                {/* SEARCH + FILTER */}
+
+                {selectedCompanyId && (
+                  <div className="mb-3 flex flex-col gap-2 sm:flex-row">
+
+                    {/* SEARCH */}
+
+                    <div className="relative flex-1">
+
+                      <Search
+                        size={16}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                      />
+
+                      <input
+                        type="text"
+                        value={memberSearch}
+                        onChange={(e) =>
+                          setMemberSearch(
+                            e.target.value
+                          )
+                        }
+                        placeholder="Search employees by name or email..."
+                        className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-9 pr-4 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-950 dark:placeholder:text-slate-600"
+                      />
+
+                    </div>
+
+                    {/* FILTER */}
+
+                    <select
+                      value={memberFilter}
+                      onChange={(e) =>
+                        setMemberFilter(
+                          e.target.value
+                        )
+                      }
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-950 sm:w-48"
+                    >
+                      <option value="all">
+                        All Employees
+                      </option>
+
+                      <option value="unassigned">
+                        Unassigned
+                      </option>
+
+                      <option value="completed">
+                        Project Completed
+                      </option>
+                    </select>
+
+                  </div>
+                )}
+
+                <div className="max-h-72 overflow-y-auto rounded-lg border border-slate-300 dark:border-slate-700">
 
                   {!selectedCompanyId ? (
                     <div className="p-4 text-sm text-slate-400">
                       Select a company first.
                     </div>
                   ) : projectMembers.length === 0 ? (
-                    <div className="p-4 text-sm text-red-500">
-                      No employees or project leads found
-                      for this company.
+                    <div className="p-4 text-sm text-slate-400">
+                      No employees found for this company.
+                    </div>
+                  ) : filteredProjectMembers.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-slate-400">
+                      No employees match your search or filter.
                     </div>
                   ) : (
-                    projectMembers.map(
+                    filteredProjectMembers.map(
                       (user) => {
+
                         const selected =
                           form.memberIds.some(
                             (id) =>
                               String(id) ===
                               String(user.id)
-                          );
-
-                        const isLeader =
-                          String(user.id) ===
-                          String(
-                            form.projectLeaderId
                           );
 
                         return (
@@ -853,10 +1032,10 @@ function CreateProject() {
                                 : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
                             }`}
                           >
+
                             <input
                               type="checkbox"
                               checked={selected}
-                              disabled={isLeader}
                               onChange={() =>
                                 handleMemberChange(
                                   user.id
@@ -865,23 +1044,19 @@ function CreateProject() {
                               className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                             />
 
-                            <div className="flex-1">
+                            <div className="min-w-0 flex-1">
 
                               <p className="text-sm font-medium">
                                 {getUserName(user)}
                               </p>
 
-                              <p className="text-xs text-slate-400">
-                                {user.role}
+                              <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                                {user.email ||
+                                  "No email"}
                               </p>
 
                             </div>
 
-                            {isLeader && (
-                              <span className="rounded-full bg-indigo-100 px-2 py-1 text-xs font-medium text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
-                                Leader
-                              </span>
-                            )}
                           </label>
                         );
                       }
@@ -889,6 +1064,34 @@ function CreateProject() {
                   )}
 
                 </div>
+
+                {/* SELECTED PROJECT LEADER */}
+
+                {form.projectLeaderId && (
+                  <div className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3 dark:border-indigo-500/20 dark:bg-indigo-500/10">
+
+                    <p className="text-xs font-semibold uppercase tracking-wider text-indigo-500">
+                      Project Leader
+                    </p>
+
+                    <p className="mt-1 text-sm font-semibold text-indigo-700 dark:text-indigo-400">
+                      {getUserName(
+                        projectLeaders.find(
+                          (user) =>
+                            String(user.id) ===
+                            String(
+                              form.projectLeaderId
+                            )
+                        ) || {}
+                      )}
+                    </p>
+
+                    <p className="mt-1 text-xs text-indigo-500">
+                      Automatically included in this project.
+                    </p>
+
+                  </div>
+                )}
 
                 <p className="mt-1.5 text-xs text-slate-400">
                   Select multiple employees who will work on
@@ -937,3 +1140,4 @@ function CreateProject() {
 }
 
 export default CreateProject;
+

@@ -1,22 +1,47 @@
+
 import {
   CheckCircle2,
   Circle,
   Clock3,
   Activity,
   Search,
+  AlertCircle,
+  X,
+  Check,
+  XCircle,
+  MessageSquare,
 } from "lucide-react";
+
 import { useState } from "react";
 
 import { useTasks } from "../../context/TaskContext";
 import { useProjects } from "../../context/ProjectContext";
+import { useAuth } from "../../context/AuthContext";
 
 function Tasks() {
-  const { tasks } = useTasks();
-  const { projects } = useProjects();
+  const {
+    tasks = [],
+    acceptTask,
+    rejectTask,
+  } = useTasks();
+
+  const { projects = [] } = useProjects();
+
+  const { currentUser } = useAuth();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
+
+  /*
+   * =========================================================
+   * REVIEW STATE
+   * =========================================================
+   */
+
+  const [reviewTask, setReviewTask] = useState(null);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewLoading, setReviewLoading] = useState(false);
 
   /*
    * =========================================================
@@ -25,10 +50,11 @@ function Tasks() {
    */
 
   const statusLabel = {
-    todo: "TO DO",
-    progress: "IN PROGRESS",
-    review: "REVIEW",
-    done: "DONE",
+    TODO: "TO DO",
+    IN_PROGRESS: "IN PROGRESS",
+    SUBMITTED: "REVIEW",
+    REJECTED: "REJECTED",
+    DONE: "DONE",
   };
 
   /*
@@ -38,19 +64,25 @@ function Tasks() {
    */
 
   const statusClass = (status) => {
-    if (status === "done") {
-      return "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400";
-    }
+    switch (
+      String(status || "").toUpperCase()
+    ) {
+      case "DONE":
+        return "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400";
 
-    if (status === "progress") {
-      return "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400";
-    }
+      case "IN_PROGRESS":
+        return "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400";
 
-    if (status === "review") {
-      return "bg-orange-100 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400";
-    }
+      case "SUBMITTED":
+        return "bg-orange-100 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400";
 
-    return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400";
+      case "REJECTED":
+        return "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400";
+
+      case "TODO":
+      default:
+        return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400";
+    }
   };
 
   /*
@@ -60,15 +92,80 @@ function Tasks() {
    */
 
   const priorityClass = (priority) => {
-    if (priority === "High") {
-      return "text-red-600 dark:text-red-400";
+    switch (
+      String(priority || "").toUpperCase()
+    ) {
+      case "HIGH":
+        return "text-red-600 dark:text-red-400";
+
+      case "MEDIUM":
+        return "text-orange-600 dark:text-orange-400";
+
+      case "LOW":
+        return "text-green-600 dark:text-green-400";
+
+      default:
+        return "text-slate-500 dark:text-slate-400";
+    }
+  };
+
+  /*
+   * =========================================================
+   * USER NAME
+   * =========================================================
+   */
+
+  const getUserName = (user) => {
+    if (!user) {
+      return "Unassigned";
     }
 
-    if (priority === "Medium") {
-      return "text-orange-600 dark:text-orange-400";
+    if (user.name) {
+      return user.name;
     }
 
-    return "text-slate-500 dark:text-slate-400";
+    const fullName =
+      `${user.firstName || ""} ${
+        user.surname || ""
+      }`.trim();
+
+    return (
+      fullName ||
+      user.email ||
+      "Unassigned"
+    );
+  };
+
+  /*
+   * =========================================================
+   * ASSIGNEE INITIALS
+   * =========================================================
+   */
+
+  const getInitials = (user) => {
+    const name = getUserName(user);
+
+    if (
+      !name ||
+      name === "Unassigned"
+    ) {
+      return "—";
+    }
+
+    const parts = name
+      .split(" ")
+      .filter(Boolean);
+
+    if (parts.length === 1) {
+      return parts[0]
+        .substring(0, 2)
+        .toUpperCase();
+    }
+
+    return (
+      parts[0][0] +
+      parts[parts.length - 1][0]
+    ).toUpperCase();
   };
 
   /*
@@ -77,14 +174,49 @@ function Tasks() {
    * =========================================================
    */
 
-  const getProjectName = (projectId) => {
+  const getProjectName = (task) => {
+    if (task?.project?.name) {
+      return task.project.name;
+    }
+
+    if (task?.project?.code) {
+      return task.project.code;
+    }
+
+    const projectId =
+      task?.project?.id ||
+      task?.projectId ||
+      "";
+
     const project = projects.find(
-      (item) => item.code === projectId
+      (item) =>
+        String(item.id) ===
+          String(projectId) ||
+        String(item.code) ===
+          String(projectId)
     );
 
-    return project
-      ? project.name
-      : projectId;
+    return (
+      project?.name ||
+      project?.code ||
+      projectId ||
+      "Project"
+    );
+  };
+
+  /*
+   * =========================================================
+   * PROJECT CODE
+   * =========================================================
+   */
+
+  const getProjectCode = (task) => {
+    return (
+      task?.project?.code ||
+      task?.project?.id ||
+      task?.projectId ||
+      "—"
+    );
   };
 
   /*
@@ -94,21 +226,61 @@ function Tasks() {
    */
 
   const filteredTasks = tasks.filter((task) => {
-    const searchText = search.toLowerCase();
+    const searchText = search
+      .trim()
+      .toLowerCase();
+
+    const taskId = String(
+      task?.id || ""
+    ).toLowerCase();
+
+    const title = String(
+      task?.title || ""
+    ).toLowerCase();
+
+    const description = String(
+      task?.description || ""
+    ).toLowerCase();
+
+    const assigneeName = getUserName(
+      task?.assignee
+    ).toLowerCase();
+
+    const assigneeEmail = String(
+      task?.assignee?.email || ""
+    ).toLowerCase();
+
+    const projectName =
+      getProjectName(task).toLowerCase();
+
+    const projectCode =
+      getProjectCode(task).toLowerCase();
 
     const matchesSearch =
-      task.id.toLowerCase().includes(searchText) ||
-      task.title.toLowerCase().includes(searchText) ||
-      task.assignee.toLowerCase().includes(searchText) ||
-      task.projectId.toLowerCase().includes(searchText);
+      !searchText ||
+      taskId.includes(searchText) ||
+      title.includes(searchText) ||
+      description.includes(searchText) ||
+      assigneeName.includes(searchText) ||
+      assigneeEmail.includes(searchText) ||
+      projectName.includes(searchText) ||
+      projectCode.includes(searchText);
+
+    const taskStatus = String(
+      task?.status || ""
+    ).toUpperCase();
+
+    const taskPriority = String(
+      task?.priority || ""
+    ).toUpperCase();
 
     const matchesStatus =
       statusFilter === "all" ||
-      task.status === statusFilter;
+      taskStatus === statusFilter;
 
     const matchesPriority =
       priorityFilter === "all" ||
-      task.priority === priorityFilter;
+      taskPriority === priorityFilter;
 
     return (
       matchesSearch &&
@@ -116,6 +288,144 @@ function Tasks() {
       matchesPriority
     );
   });
+
+  /*
+   * =========================================================
+   * OPEN REVIEW
+   * =========================================================
+   */
+
+  const openReview = (task) => {
+    setReviewTask(task);
+    setReviewComment(
+      task?.reviewComment || ""
+    );
+  };
+
+  /*
+   * =========================================================
+   * CLOSE REVIEW
+   * =========================================================
+   */
+
+  const closeReview = () => {
+    if (reviewLoading) {
+      return;
+    }
+
+    setReviewTask(null);
+    setReviewComment("");
+  };
+
+  /*
+   * =========================================================
+   * APPROVE TASK
+   * =========================================================
+   */
+
+  const handleApproveTask = async () => {
+    if (
+      !reviewTask?.id ||
+      !currentUser?.id
+    ) {
+      return;
+    }
+
+    try {
+      setReviewLoading(true);
+
+      const result = await acceptTask(
+        reviewTask.id,
+        currentUser.id,
+        reviewComment.trim()
+      );
+
+      if (!result?.success) {
+        alert(
+          result?.message ||
+            "Unable to approve the task."
+        );
+
+        return;
+      }
+
+      alert(
+        "Task approved and completed."
+      );
+
+      closeReview();
+    } catch (error) {
+      console.error(
+        "Approve task error:",
+        error
+      );
+
+      alert(
+        "Unable to approve the task."
+      );
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  /*
+   * =========================================================
+   * REJECT TASK
+   * =========================================================
+   */
+
+  const handleRejectTask = async () => {
+    if (
+      !reviewTask?.id ||
+      !currentUser?.id
+    ) {
+      return;
+    }
+
+    if (!reviewComment.trim()) {
+      alert(
+        "Please write a review comment before rejecting the task."
+      );
+
+      return;
+    }
+
+    try {
+      setReviewLoading(true);
+
+      const result = await rejectTask(
+        reviewTask.id,
+        currentUser.id,
+        reviewComment.trim()
+      );
+
+      if (!result?.success) {
+        alert(
+          result?.message ||
+            "Unable to reject the task."
+        );
+
+        return;
+      }
+
+      alert(
+        "Task rejected and sent back to the employee."
+      );
+
+      closeReview();
+    } catch (error) {
+      console.error(
+        "Reject task error:",
+        error
+      );
+
+      alert(
+        "Unable to reject the task."
+      );
+    } finally {
+      setReviewLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -156,7 +466,7 @@ function Tasks() {
 
         <div className="flex flex-col gap-3 lg:flex-row">
 
-          {/* Search */}
+          {/* SEARCH */}
 
           <div className="relative flex-1">
 
@@ -176,7 +486,7 @@ function Tasks() {
 
           </div>
 
-          {/* Status */}
+          {/* STATUS */}
 
           <select
             value={statusFilter}
@@ -189,24 +499,28 @@ function Tasks() {
               All Status
             </option>
 
-            <option value="todo">
+            <option value="TODO">
               TO DO
             </option>
 
-            <option value="progress">
+            <option value="IN_PROGRESS">
               IN PROGRESS
             </option>
 
-            <option value="review">
+            <option value="SUBMITTED">
               REVIEW
             </option>
 
-            <option value="done">
+            <option value="REJECTED">
+              REJECTED
+            </option>
+
+            <option value="DONE">
               DONE
             </option>
           </select>
 
-          {/* Priority */}
+          {/* PRIORITY */}
 
           <select
             value={priorityFilter}
@@ -219,15 +533,15 @@ function Tasks() {
               All Priority
             </option>
 
-            <option value="High">
+            <option value="HIGH">
               High
             </option>
 
-            <option value="Medium">
+            <option value="MEDIUM">
               Medium
             </option>
 
-            <option value="Low">
+            <option value="LOW">
               Low
             </option>
           </select>
@@ -251,14 +565,15 @@ function Tasks() {
             </h2>
 
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Showing {filteredTasks.length} of {tasks.length} tasks
+              Showing {filteredTasks.length} of{" "}
+              {tasks.length} tasks
             </p>
 
           </div>
 
           <div className="overflow-x-auto">
 
-            <table className="w-full min-w-[900px]">
+            <table className="w-full min-w-[1100px]">
 
               <thead>
 
@@ -288,131 +603,234 @@ function Tasks() {
                     Due Date
                   </th>
 
+                  <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Action
+                  </th>
+
                 </tr>
 
               </thead>
 
               <tbody>
 
-                {filteredTasks.map((task) => (
+                {filteredTasks.map((task) => {
 
-                  <tr
-                    key={task.id}
-                    className="border-b border-slate-100 dark:border-slate-800"
-                  >
+                  const taskStatus = String(
+                    task?.status || ""
+                  ).toUpperCase();
 
-                    {/* Task */}
+                  const taskAssignee =
+                    task?.assignee;
 
-                    <td className="px-5 py-4">
+                  return (
+                    <tr
+                      key={task?.id}
+                      className="border-b border-slate-100 transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900"
+                    >
 
-                      <div className="flex items-center gap-3">
+                      {/* TASK */}
 
-                        {task.status === "done" ? (
+                      <td className="px-5 py-4">
 
-                          <CheckCircle2
-                            size={18}
-                            className="text-green-500"
-                          />
+                        <div className="flex items-center gap-3">
 
-                        ) : task.status === "progress" ? (
+                          {taskStatus === "DONE" ? (
 
-                          <Clock3
-                            size={18}
-                            className="text-blue-500"
-                          />
+                            <CheckCircle2
+                              size={18}
+                              className="text-green-500"
+                            />
 
-                        ) : (
+                          ) : taskStatus ===
+                            "IN_PROGRESS" ? (
 
-                          <Circle
-                            size={18}
-                            className="text-slate-400"
-                          />
+                            <Clock3
+                              size={18}
+                              className="text-blue-500"
+                            />
 
-                        )}
+                          ) : taskStatus ===
+                            "SUBMITTED" ? (
+
+                            <AlertCircle
+                              size={18}
+                              className="text-orange-500"
+                            />
+
+                          ) : taskStatus ===
+                            "REJECTED" ? (
+
+                            <AlertCircle
+                              size={18}
+                              className="text-red-500"
+                            />
+
+                          ) : (
+
+                            <Circle
+                              size={18}
+                              className="text-slate-400"
+                            />
+
+                          )}
+
+                          <div>
+
+                            <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                              {task?.id}
+                            </p>
+
+                            <p className="mt-1 text-sm font-medium">
+                              {task?.title ||
+                                "Untitled Task"}
+                            </p>
+
+                          </div>
+
+                        </div>
+
+                      </td>
+
+                      {/* PROJECT */}
+
+                      <td className="px-5 py-4">
 
                         <div>
 
-                          <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                            {task.id}
+                          <p className="text-sm font-medium">
+                            {getProjectName(task)}
                           </p>
 
-                          <p className="mt-1 text-sm font-medium">
-                            {task.title}
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {getProjectCode(task)}
                           </p>
 
                         </div>
 
-                      </div>
+                      </td>
 
-                    </td>
+                      {/* STATUS */}
 
-                    {/* Project */}
+                      <td className="px-5 py-4">
 
-                    <td className="px-5 py-4">
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(
+                            task?.status
+                          )}`}
+                        >
+                          {statusLabel[
+                            taskStatus
+                          ] ||
+                            task?.status ||
+                            "UNKNOWN"}
+                        </span>
 
-                      <div>
+                      </td>
 
-                        <p className="text-sm font-medium">
-                          {getProjectName(task.projectId)}
-                        </p>
+                      {/* PRIORITY */}
 
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          {task.projectId}
-                        </p>
+                      <td className="px-5 py-4">
 
-                      </div>
+                        <span
+                          className={`text-sm font-medium ${priorityClass(
+                            task?.priority
+                          )}`}
+                        >
+                          {task?.priority ||
+                            "Normal"}
+                        </span>
 
-                    </td>
+                      </td>
 
-                    {/* Status */}
+                      {/* ASSIGNEE */}
 
-                    <td className="px-5 py-4">
+                      <td className="px-5 py-4">
 
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(
-                          task.status
-                        )}`}
-                      >
-                        {statusLabel[task.status]}
-                      </span>
+                        <div className="flex items-center gap-2">
 
-                    </td>
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+                            {getInitials(
+                              taskAssignee
+                            )}
+                          </div>
 
-                    {/* Priority */}
+                          <div className="min-w-0">
 
-                    <td className="px-5 py-4">
+                            <p className="truncate text-sm font-medium">
+                              {getUserName(
+                                taskAssignee
+                              )}
+                            </p>
 
-                      <span
-                        className={`text-sm font-medium ${priorityClass(
-                          task.priority
-                        )}`}
-                      >
-                        {task.priority}
-                      </span>
+                            {taskAssignee?.email && (
+                              <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                                {taskAssignee.email}
+                              </p>
+                            )}
 
-                    </td>
+                          </div>
 
-                    {/* Assignee */}
+                        </div>
 
-                    <td className="px-5 py-4">
+                      </td>
 
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
-                        {task.assignee}
-                      </div>
+                      {/* DUE DATE */}
 
-                    </td>
+                      <td className="px-5 py-4 text-sm text-slate-500 dark:text-slate-400">
 
-                    {/* Due Date */}
+                        {task?.dueDate ||
+                          "No due date"}
 
-                    <td className="px-5 py-4 text-sm text-slate-500 dark:text-slate-400">
+                      </td>
 
-                      {task.dueDate || "No due date"}
+                      {/* ACTION */}
 
-                    </td>
+                      <td className="px-5 py-4">
 
-                  </tr>
+                        {taskStatus ===
+                        "SUBMITTED" ? (
 
-                ))}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openReview(task)
+                            }
+                            className="inline-flex items-center gap-2 rounded-lg bg-orange-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-orange-600"
+                          >
+                            <MessageSquare
+                              size={14}
+                            />
+
+                            Review
+                          </button>
+
+                        ) : taskStatus ===
+                          "DONE" ? (
+
+                          <span className="text-xs font-medium text-green-600 dark:text-green-400">
+                            Completed
+                          </span>
+
+                        ) : taskStatus ===
+                          "REJECTED" ? (
+
+                          <span className="text-xs font-medium text-red-600 dark:text-red-400">
+                            Returned to employee
+                          </span>
+
+                        ) : (
+
+                          <span className="text-xs text-slate-400">
+                            —
+                          </span>
+
+                        )}
+
+                      </td>
+
+                    </tr>
+                  );
+                })}
 
               </tbody>
 
@@ -444,8 +862,149 @@ function Tasks() {
 
       )}
 
+      {/* =================================================
+          REVIEW MODAL
+      ================================================= */}
+
+      {reviewTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+
+          <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-950">
+
+            {/* HEADER */}
+
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+
+              <div className="flex items-center gap-3">
+
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400">
+                  <MessageSquare size={20} />
+                </div>
+
+                <div>
+
+                  <h2 className="font-semibold">
+                    Review Task
+                  </h2>
+
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {reviewTask.id} ·{" "}
+                    {reviewTask.title}
+                  </p>
+
+                </div>
+
+              </div>
+
+              <button
+                type="button"
+                onClick={closeReview}
+                disabled={reviewLoading}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              >
+                <X size={18} />
+              </button>
+
+            </div>
+
+            {/* BODY */}
+
+            <div className="space-y-5 p-6">
+
+              {/* TASK DETAILS */}
+
+              <div className="rounded-lg bg-slate-50 p-4 dark:bg-slate-900">
+
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Employee
+                </p>
+
+                <p className="mt-1 text-sm font-medium">
+                  {getUserName(
+                    reviewTask.assignee
+                  )}
+                </p>
+
+                {reviewTask.assignee?.email && (
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {reviewTask.assignee.email}
+                  </p>
+                )}
+
+              </div>
+
+              {/* COMMENT */}
+
+              <div>
+
+                <label className="mb-2 block text-sm font-medium">
+                  Review Comment
+                </label>
+
+                <textarea
+                  value={reviewComment}
+                  onChange={(e) =>
+                    setReviewComment(
+                      e.target.value
+                    )
+                  }
+                  rows={5}
+                  placeholder="Write your feedback about the completed work..."
+                  disabled={reviewLoading}
+                  className="w-full resize-none rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:placeholder:text-slate-600"
+                />
+
+                <p className="mt-1.5 text-xs text-slate-400">
+                  A comment is required when rejecting a task.
+                </p>
+
+              </div>
+
+            </div>
+
+            {/* FOOTER */}
+
+            <div className="flex flex-col-reverse gap-3 border-t border-slate-200 px-6 py-4 sm:flex-row sm:justify-end dark:border-slate-800">
+
+              <button
+                type="button"
+                onClick={handleRejectTask}
+                disabled={
+                  reviewLoading ||
+                  !reviewComment.trim()
+                }
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <XCircle size={16} />
+
+                {reviewLoading
+                  ? "Processing..."
+                  : "Reject Task"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleApproveTask}
+                disabled={reviewLoading}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Check size={16} />
+
+                {reviewLoading
+                  ? "Processing..."
+                  : "Approve & Complete"}
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
     </div>
   );
 }
 
 export default Tasks;
+

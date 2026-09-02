@@ -1,3 +1,4 @@
+
 import {
   createContext,
   useContext,
@@ -70,11 +71,17 @@ export function TaskProvider({ children }) {
       const projectTasks = Array.isArray(data) ? data : [];
 
       setTasks((current) => {
-        const otherTasks = current.filter(
-          (task) =>
-            String(task?.project?.id || "") !==
-            String(projectId)
-        );
+        const otherTasks = current.filter((task) => {
+          const taskProjectId =
+            task?.project?.id ||
+            task?.project?.code ||
+            task?.projectId ||
+            "";
+
+          return (
+            String(taskProjectId) !== String(projectId)
+          );
+        });
 
         return [...otherTasks, ...projectTasks];
       });
@@ -270,195 +277,236 @@ export function TaskProvider({ children }) {
   };
 
   // =========================================================
-// UPDATE TASK
-// =========================================================
+  // UPDATE TASK
+  // =========================================================
 
-const updateTask = async (updatedTask) => {
-  try {
-    if (!updatedTask?.id) {
-      return {
-        success: false,
-        message: "Task ID is required.",
+  const updateTask = async (updatedTask) => {
+    try {
+      if (!updatedTask?.id) {
+        return {
+          success: false,
+          message: "Task ID is required.",
+        };
+      }
+
+      /*
+       * ---------------------------------------------------------
+       * ASSIGNEE ID
+       * ---------------------------------------------------------
+       *
+       * Support all possible frontend/backend structures:
+       *
+       * task.assignee.id
+       * task.assigneeId
+       * task.assignee
+       */
+
+      let assigneeId = null;
+
+      if (updatedTask?.assignee?.id) {
+        assigneeId = updatedTask.assignee.id;
+      } else if (updatedTask?.assigneeId) {
+        assigneeId = updatedTask.assigneeId;
+      } else if (
+        typeof updatedTask?.assignee === "string" &&
+        updatedTask.assignee !== "NA"
+      ) {
+        assigneeId = updatedTask.assignee;
+      }
+
+      /*
+       * ---------------------------------------------------------
+       * STATUS NORMALIZATION
+       * ---------------------------------------------------------
+       *
+       * Frontend:
+       * todo
+       * progress
+       * review
+       * done
+       *
+       * Backend:
+       * TODO
+       * IN_PROGRESS
+       * SUBMITTED
+       * REJECTED
+       * DONE
+       */
+
+      const statusMap = {
+        todo: "TODO",
+        progress: "IN_PROGRESS",
+        review: "SUBMITTED",
+        done: "DONE",
+        rejected: "REJECTED",
+
+        TODO: "TODO",
+        IN_PROGRESS: "IN_PROGRESS",
+        SUBMITTED: "SUBMITTED",
+        REJECTED: "REJECTED",
+        DONE: "DONE",
       };
-    }
 
-    /*
-     * ---------------------------------------------------------
-     * ASSIGNEE ID
-     * ---------------------------------------------------------
-     *
-     * Support all possible frontend/backend structures:
-     *
-     * task.assignee.id
-     * task.assigneeId
-     * task.assignee
-     */
+      const normalizedStatus =
+        statusMap[updatedTask.status] ||
+        updatedTask.status ||
+        "TODO";
 
-    let assigneeId = null;
+      /*
+       * ---------------------------------------------------------
+       * REQUEST BODY
+       * ---------------------------------------------------------
+       *
+       * Send every editable field.
+       */
 
-    if (updatedTask?.assignee?.id) {
-      assigneeId = updatedTask.assignee.id;
-    } else if (updatedTask?.assigneeId) {
-      assigneeId = updatedTask.assigneeId;
-    } else if (
-      typeof updatedTask?.assignee === "string" &&
-      updatedTask.assignee !== "NA"
-    ) {
-      assigneeId = updatedTask.assignee;
-    }
+      const taskBody = {
+        title: updatedTask.title?.trim() || "",
 
-    /*
-     * ---------------------------------------------------------
-     * REQUEST BODY
-     * ---------------------------------------------------------
-     *
-     * Send every editable field.
-     */
+        description:
+          updatedTask.description?.trim() || "",
 
-    const taskBody = {
-      title: updatedTask.title?.trim() || "",
+        priority:
+          updatedTask.priority || "Medium",
 
-      description:
-        updatedTask.description?.trim() || "",
+        status:
+          normalizedStatus,
 
-      priority:
-        updatedTask.priority || "Medium",
-
-      status:
-        updatedTask.status || "TODO",
-
-      dueDate:
-        updatedTask.dueDate || null,
-    };
-
-    /*
-     * ---------------------------------------------------------
-     * ASSIGNEE
-     * ---------------------------------------------------------
-     */
-
-    if (assigneeId) {
-      taskBody.assignee = {
-        id: assigneeId,
+        dueDate:
+          updatedTask.dueDate || null,
       };
-    }
 
-    console.log(
-      "Updating task:",
-      updatedTask.id
-    );
+      /*
+       * ---------------------------------------------------------
+       * ASSIGNEE
+       * ---------------------------------------------------------
+       */
 
-    console.log(
-      "Update request body:",
-      taskBody
-    );
+      if (
+        assigneeId &&
+        String(assigneeId).toUpperCase() !== "NA"
+      ) {
+        taskBody.assignee = {
+          id: assigneeId,
+        };
+      }
 
-    /*
-     * ---------------------------------------------------------
-     * API REQUEST
-     * ---------------------------------------------------------
-     */
-
-    const response = await fetch(
-      `${API_URL}/tasks/${encodeURIComponent(
+      console.log(
+        "Updating task:",
         updatedTask.id
-      )}`,
-      {
-        method: "PUT",
+      );
 
-        headers: {
-          "Content-Type": "application/json",
-        },
+      console.log(
+        "Update request body:",
+        taskBody
+      );
 
-        body: JSON.stringify(taskBody),
-      }
-    );
+      /*
+       * ---------------------------------------------------------
+       * API REQUEST
+       * ---------------------------------------------------------
+       */
 
-    const responseText =
-      await response.text();
+      const response = await fetch(
+        `${API_URL}/tasks/${encodeURIComponent(
+          updatedTask.id
+        )}`,
+        {
+          method: "PUT",
 
-    /*
-     * ---------------------------------------------------------
-     * ERROR
-     * ---------------------------------------------------------
-     */
+          headers: {
+            "Content-Type": "application/json",
+          },
 
-    if (!response.ok) {
-      let message =
-        "Failed to update task.";
-
-      try {
-        const errorData =
-          JSON.parse(responseText);
-
-        message =
-          errorData?.message ||
-          errorData?.error ||
-          responseText ||
-          message;
-      } catch {
-        if (responseText) {
-          message = responseText;
+          body: JSON.stringify(taskBody),
         }
+      );
+
+      const responseText =
+        await response.text();
+
+      /*
+       * ---------------------------------------------------------
+       * ERROR
+       * ---------------------------------------------------------
+       */
+
+      if (!response.ok) {
+        let message =
+          "Failed to update task.";
+
+        try {
+          const errorData =
+            JSON.parse(responseText);
+
+          message =
+            errorData?.message ||
+            errorData?.error ||
+            responseText ||
+            message;
+        } catch {
+          if (responseText) {
+            message = responseText;
+          }
+        }
+
+        console.error(
+          "Update task failed:",
+          message
+        );
+
+        return {
+          success: false,
+          message,
+        };
       }
 
+      /*
+       * ---------------------------------------------------------
+       * BACKEND RESPONSE
+       * ---------------------------------------------------------
+       */
+
+      const savedTask =
+        JSON.parse(responseText);
+
+      console.log(
+        "Updated task from backend:",
+        savedTask
+      );
+
+      /*
+       * ---------------------------------------------------------
+       * UPDATE LOCAL TASK STATE
+       * ---------------------------------------------------------
+       */
+
+      setTasks((current) =>
+        current.map((task) =>
+          String(task.id) ===
+            String(savedTask.id)
+            ? savedTask
+            : task
+        )
+      );
+
+      return {
+        success: true,
+        task: savedTask,
+      };
+    } catch (error) {
       console.error(
-        "Update task failed:",
-        message
+        "Update task error:",
+        error
       );
 
       return {
         success: false,
-        message,
+        message:
+          "Unable to connect to the server.",
       };
     }
-
-    /*
-     * ---------------------------------------------------------
-     * BACKEND RESPONSE
-     * ---------------------------------------------------------
-     */
-
-    const savedTask =
-      JSON.parse(responseText);
-
-    console.log(
-      "Updated task from backend:",
-      savedTask
-    );
-
-    /*
-     * ---------------------------------------------------------
-     * UPDATE LOCAL TASK STATE
-     * ---------------------------------------------------------
-     */
-
-    setTasks((current) =>
-      current.map((task) =>
-        String(task.id) ===
-        String(savedTask.id)
-          ? savedTask
-          : task
-      )
-    );
-
-    return {
-      success: true,
-      task: savedTask,
-    };
-  } catch (error) {
-    console.error(
-      "Update task error:",
-      error
-    );
-
-    return {
-      success: false,
-      message:
-        "Unable to connect to the server.",
-    };
-  }
-};
+  };
 
   // =========================================================
   // DELETE TASK
@@ -515,7 +563,7 @@ const updateTask = async (updatedTask) => {
       setTasks((current) =>
         current.filter(
           (task) =>
-            task.id !== taskId
+            String(task.id) !== String(taskId)
         )
       );
 
@@ -583,7 +631,8 @@ const updateTask = async (updatedTask) => {
 
       setTasks((current) =>
         current.map((task) =>
-          task.id === savedTask.id
+          String(task.id) ===
+            String(savedTask.id)
             ? savedTask
             : task
         )
@@ -654,7 +703,8 @@ const updateTask = async (updatedTask) => {
 
       setTasks((current) =>
         current.map((task) =>
-          task.id === savedTask.id
+          String(task.id) ===
+            String(savedTask.id)
             ? savedTask
             : task
         )
@@ -740,7 +790,8 @@ const updateTask = async (updatedTask) => {
 
       setTasks((current) =>
         current.map((task) =>
-          task.id === savedTask.id
+          String(task.id) ===
+            String(savedTask.id)
             ? savedTask
             : task
         )
@@ -826,7 +877,8 @@ const updateTask = async (updatedTask) => {
 
       setTasks((current) =>
         current.map((task) =>
-          task.id === savedTask.id
+          String(task.id) ===
+            String(savedTask.id)
             ? savedTask
             : task
         )
@@ -894,3 +946,4 @@ const updateTask = async (updatedTask) => {
 export function useTasks() {
   return useContext(TaskContext);
 }
+

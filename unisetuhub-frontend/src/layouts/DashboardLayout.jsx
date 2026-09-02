@@ -398,8 +398,7 @@ function DashboardLayout() {
                 SETTINGS
             ================================================= */}
 
-            {role !== "EMPLOYEE" && (
-              <>
+            
                 <div className="my-6 border-t border-slate-200 dark:border-slate-800" />
 
                 <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -421,8 +420,7 @@ function DashboardLayout() {
                   Settings
 
                 </NavLink>
-              </>
-            )}
+            
 
           </nav>
 

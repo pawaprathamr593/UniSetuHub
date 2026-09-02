@@ -1,4 +1,3 @@
-
 import {
   CheckCircle2,
   Clock3,
@@ -7,6 +6,8 @@ import {
   Search,
   Filter,
   X,
+  Play,
+  Send,
 } from "lucide-react";
 
 import { useState } from "react";
@@ -15,7 +16,12 @@ import { useTasks } from "../../context/TaskContext";
 import { useAuth } from "../../context/AuthContext";
 
 function EmployeeTasks() {
-  const { tasks = [] } = useTasks();
+  const {
+    tasks = [],
+    startTask,
+    submitTask,
+  } = useTasks();
+
   const { currentUser } = useAuth();
 
   /*
@@ -31,6 +37,14 @@ function EmployeeTasks() {
 
   /*
    * =========================================================
+   * ACTION STATE
+   * =========================================================
+   */
+
+  const [actionLoading, setActionLoading] = useState("");
+
+  /*
+   * =========================================================
    * CURRENT USER ID
    * =========================================================
    */
@@ -43,9 +57,6 @@ function EmployeeTasks() {
    * =========================================================
    * MY TASKS
    * =========================================================
-   *
-   * First filter ONLY tasks assigned to current employee.
-   *
    */
 
   const myTasks = Array.isArray(tasks)
@@ -171,13 +182,13 @@ function EmployeeTasks() {
   const progress = myTasks.filter(
     (task) =>
       String(task?.status || "").toUpperCase() ===
-      "PROGRESS"
+      "IN_PROGRESS"
   ).length;
 
   const review = myTasks.filter(
     (task) =>
       String(task?.status || "").toUpperCase() ===
-      "REVIEW"
+      "SUBMITTED"
   ).length;
 
   const completed = myTasks.filter(
@@ -207,6 +218,78 @@ function EmployeeTasks() {
 
   /*
    * =========================================================
+   * TASK ACTIONS
+   * =========================================================
+   */
+
+  const handleStartTask = async (taskId) => {
+    if (!currentUserId || !taskId) {
+      return;
+    }
+
+    try {
+      setActionLoading(`start-${taskId}`);
+
+      const result = await startTask(
+        taskId,
+        currentUserId
+      );
+
+      if (!result?.success) {
+        alert(
+          result?.message ||
+            "Unable to start the task."
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Start task error:",
+        error
+      );
+
+      alert(
+        "Unable to start the task."
+      );
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const handleSubmitTask = async (taskId) => {
+    if (!currentUserId || !taskId) {
+      return;
+    }
+
+    try {
+      setActionLoading(`submit-${taskId}`);
+
+      const result = await submitTask(
+        taskId,
+        currentUserId
+      );
+
+      if (!result?.success) {
+        alert(
+          result?.message ||
+            "Unable to submit the task for review."
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Submit task error:",
+        error
+      );
+
+      alert(
+        "Unable to submit the task for review."
+      );
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  /*
+   * =========================================================
    * STATUS HELPERS
    * =========================================================
    */
@@ -218,11 +301,14 @@ function EmployeeTasks() {
       case "TODO":
         return "To Do";
 
-      case "PROGRESS":
+      case "IN_PROGRESS":
         return "In Progress";
 
-      case "REVIEW":
+      case "SUBMITTED":
         return "Review";
+
+      case "REJECTED":
+        return "Rejected";
 
       case "DONE":
         return "Completed";
@@ -239,11 +325,14 @@ function EmployeeTasks() {
       case "TODO":
         return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
 
-      case "PROGRESS":
+      case "IN_PROGRESS":
         return "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400";
 
-      case "REVIEW":
+      case "SUBMITTED":
         return "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400";
+
+      case "REJECTED":
+        return "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400";
 
       case "DONE":
         return "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400";
@@ -426,12 +515,16 @@ function EmployeeTasks() {
                 To Do
               </option>
 
-              <option value="PROGRESS">
+              <option value="IN_PROGRESS">
                 In Progress
               </option>
 
-              <option value="REVIEW">
+              <option value="SUBMITTED">
                 Review
+              </option>
+
+              <option value="REJECTED">
+                Rejected
               </option>
 
               <option value="DONE">
@@ -490,7 +583,6 @@ function EmployeeTasks() {
               }
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900"
             >
-
               <option value="ALL">
                 All Projects
               </option>
@@ -550,110 +642,189 @@ function EmployeeTasks() {
 
           {filteredTasks.length > 0 ? (
 
-            filteredTasks.map((task) => (
+            filteredTasks.map((task) => {
 
-              <div
-                key={task?.id}
-                className="p-5 transition hover:bg-slate-50 dark:hover:bg-slate-900"
-              >
+              const taskStatus =
+                String(
+                  task?.status || ""
+                ).toUpperCase();
 
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              const isStarting =
+                actionLoading ===
+                `start-${task?.id}`;
 
-                  {/* TASK INFO */}
+              const isSubmitting =
+                actionLoading ===
+                `submit-${task?.id}`;
 
-                  <div className="min-w-0">
+              const canStart =
+                taskStatus === "TODO" ||
+                taskStatus === "REJECTED";
 
-                    <div className="flex flex-wrap items-center gap-2">
+              const canSubmit =
+                taskStatus === "IN_PROGRESS";
 
-                      <h3 className="font-medium">
-                        {task?.title ||
-                          "Untitled Task"}
-                      </h3>
+              return (
+                <div
+                  key={task?.id}
+                  className="p-5 transition hover:bg-slate-50 dark:hover:bg-slate-900"
+                >
 
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClass(
-                          task?.status
-                        )}`}
-                      >
-                        {getStatusLabel(
-                          task?.status
-                        )}
-                      </span>
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 
-                    </div>
+                    {/* TASK INFO */}
 
-                    <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                      {task?.description ||
-                        "No description available."}
-                    </p>
+                    <div className="min-w-0">
 
-                    {/* PROJECT */}
+                      <div className="flex flex-wrap items-center gap-2">
 
-                    {task?.project && (
+                        <h3 className="font-medium">
+                          {task?.title ||
+                            "Untitled Task"}
+                        </h3>
 
-                      <p className="mt-3 text-xs text-slate-400">
-
-                        Project:{" "}
-
-                        <span className="font-medium text-slate-600 dark:text-slate-300">
-
-                          {task.project.name ||
-                            task.project.code ||
-                            "Project"}
-
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClass(
+                            task?.status
+                          )}`}
+                        >
+                          {getStatusLabel(
+                            task?.status
+                          )}
                         </span>
 
+                      </div>
+
+                      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                        {task?.description ||
+                          "No description available."}
                       </p>
 
-                    )}
+                      {/* PROJECT */}
 
-                  </div>
+                      {task?.project && (
+                        <p className="mt-3 text-xs text-slate-400">
 
-                  {/* TASK DETAILS */}
+                          Project:{" "}
 
-                  <div className="flex shrink-0 flex-wrap items-center gap-5">
+                          <span className="font-medium text-slate-600 dark:text-slate-300">
 
-                    {/* PRIORITY */}
+                            {task.project.name ||
+                              task.project.code ||
+                              "Project"}
 
-                    <div>
+                          </span>
 
-                      <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                        Priority
-                      </p>
-
-                      <p
-                        className={`mt-1 text-sm font-medium ${getPriorityClass(
-                          task?.priority
-                        )}`}
-                      >
-                        {task?.priority ||
-                          "Normal"}
-                      </p>
+                        </p>
+                      )}
 
                     </div>
 
-                    {/* DUE DATE */}
+                    {/* TASK DETAILS + ACTION */}
 
-                    <div>
+                    <div className="flex shrink-0 flex-wrap items-end gap-5">
 
-                      <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                        Due Date
-                      </p>
+                      {/* PRIORITY */}
 
-                      <p className="mt-1 text-sm font-medium">
-                        {task?.dueDate ||
-                          "No date"}
-                      </p>
+                      <div>
+
+                        <p className="text-[11px] uppercase tracking-wide text-slate-400">
+                          Priority
+                        </p>
+
+                        <p
+                          className={`mt-1 text-sm font-medium ${getPriorityClass(
+                            task?.priority
+                          )}`}
+                        >
+                          {task?.priority ||
+                            "Normal"}
+                        </p>
+
+                      </div>
+
+                      {/* DUE DATE */}
+
+                      <div>
+
+                        <p className="text-[11px] uppercase tracking-wide text-slate-400">
+                          Due Date
+                        </p>
+
+                        <p className="mt-1 text-sm font-medium">
+                          {task?.dueDate ||
+                            "No date"}
+                        </p>
+
+                      </div>
+
+                      {/* ACTION */}
+
+                      {canStart && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleStartTask(
+                              task?.id
+                            )
+                          }
+                          disabled={
+                            isStarting ||
+                            !currentUserId
+                          }
+                          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Play size={14} />
+
+                          {isStarting
+                            ? "Starting..."
+                            : "Start Task"}
+                        </button>
+                      )}
+
+                      {canSubmit && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleSubmitTask(
+                              task?.id
+                            )
+                          }
+                          disabled={
+                            isSubmitting ||
+                            !currentUserId
+                          }
+                          className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Send size={14} />
+
+                          {isSubmitting
+                            ? "Submitting..."
+                            : "Submit for Review"}
+                        </button>
+                      )}
+
+                      {taskStatus === "SUBMITTED" && (
+                        <span className="inline-flex items-center gap-2 rounded-lg bg-yellow-50 px-4 py-2.5 text-xs font-medium text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400">
+                          <Clock3 size={14} />
+                          Awaiting Review
+                        </span>
+                      )}
+
+                      {taskStatus === "DONE" && (
+                        <span className="inline-flex items-center gap-2 rounded-lg bg-green-50 px-4 py-2.5 text-xs font-medium text-green-700 dark:bg-green-500/10 dark:text-green-400">
+                          <CheckCircle2 size={14} />
+                          Completed
+                        </span>
+                      )}
 
                     </div>
 
                   </div>
 
                 </div>
-
-              </div>
-
-            ))
+              );
+            })
 
           ) : (
 
@@ -736,4 +907,3 @@ function StatCard({
 }
 
 export default EmployeeTasks;
-
