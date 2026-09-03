@@ -586,10 +586,7 @@ function ProjectMembers() {
         }
       );
 
-    console.log(
-      "REMOVE MEMBER RESULT:",
-      result
-    );
+
 
     if (!result?.success) {
       alert(

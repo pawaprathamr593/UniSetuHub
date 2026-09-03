@@ -312,10 +312,7 @@ function Employees() {
           "",
       };
 
-      console.log(
-        "Updating employee:",
-        requestBody
-      );
+      
 
       const response = await fetch(
         `http://localhost:8080/users/${encodeURIComponent(

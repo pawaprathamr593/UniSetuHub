@@ -5,15 +5,7 @@ function ProjectLayout() {
   const { projectId } = useParams();
   const { projects = [] } = useProjects();
 
-  /*
-   * =========================================================
-   * DEBUG
-   * =========================================================
-   */
 
-  console.log("========== PROJECT LAYOUT ==========");
-  console.log("URL PROJECT ID:", projectId);
-  console.log("PROJECTS:", projects);
 
   /*
    * =========================================================
@@ -43,7 +35,7 @@ function ProjectLayout() {
     );
   });
 
-  console.log("CURRENT PROJECT:", project);
+
 
   /*
    * =========================================================

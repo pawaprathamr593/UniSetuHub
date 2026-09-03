@@ -24,16 +24,7 @@ function Projects() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  /*
-   * =========================================================
-   * DEBUG
-   * =========================================================
-   */
 
-  console.log("========== PROJECT PAGE ==========");
-  console.log("CURRENT USER:", currentUser);
-  console.log("PROJECTS FROM CONTEXT:", projects);
-  console.log("TASKS FROM CONTEXT:", tasks);
 
   /*
    * =========================================================
@@ -55,9 +46,6 @@ function Projects() {
     ""
   );
 
-  console.log("USER ID:", currentUserId);
-  console.log("USER ROLE:", currentUserRole);
-  console.log("COMPANY ID:", currentCompanyId);
 
   /*
    * =========================================================
@@ -83,9 +71,7 @@ function Projects() {
      */
 
     if (currentUserRole === "WEBSITE_ADMIN") {
-      console.log(
-        "Access granted: WEBSITE_ADMIN"
-      );
+      
 
       return projects;
     }
@@ -100,9 +86,7 @@ function Projects() {
      */
 
     if (currentUserRole === "COMPANY_HEAD") {
-      console.log(
-        "Access granted: COMPANY_HEAD"
-      );
+      
 
       const companyProjects =
         projects.filter((project) => {
@@ -110,13 +94,6 @@ function Projects() {
             project?.company?.id || ""
           );
 
-          console.log(
-            "Company check:",
-            project?.name,
-            projectCompanyId,
-            "===",
-            currentCompanyId
-          );
 
           return (
             projectCompanyId ===
@@ -124,10 +101,7 @@ function Projects() {
           );
         });
 
-      console.log(
-        "COMPANY HEAD PROJECTS:",
-        companyProjects
-      );
+      
 
       return companyProjects;
     }
@@ -143,9 +117,7 @@ function Projects() {
      */
 
     if (currentUserRole === "PROJECT_LEAD") {
-      console.log(
-        "Access granted: PROJECT_LEAD"
-      );
+      
 
       const leaderProjects =
         projects.filter((project) => {
@@ -153,23 +125,14 @@ function Projects() {
             project?.projectLeader?.id || ""
           );
 
-          console.log(
-            "Leader check:",
-            project?.name,
-            leaderId,
-            "===",
-            currentUserId
-          );
+          
 
           return (
             leaderId === currentUserId
           );
         });
 
-      console.log(
-        "PROJECT LEAD PROJECTS:",
-        leaderProjects
-      );
+      
 
       return leaderProjects;
     }
@@ -184,9 +147,7 @@ function Projects() {
      */
 
     if (currentUserRole === "EMPLOYEE") {
-      console.log(
-        "Access granted: EMPLOYEE"
-      );
+      
 
       const employeeProjects =
         projects.filter((project) => {
@@ -208,24 +169,8 @@ function Projects() {
             }
           );
 
-          console.log(
-            "Member check:",
-            project?.name,
-            "Members:",
-            members,
-            "Current User:",
-            currentUserId,
-            "Is Member:",
-            isMember
-          );
-
           return isMember;
         });
-
-      console.log(
-        "EMPLOYEE PROJECTS:",
-        employeeProjects
-      );
 
       return employeeProjects;
     }
@@ -236,10 +181,7 @@ function Projects() {
      * =======================================================
      */
 
-    console.log(
-      "Unknown user role:",
-      currentUserRole
-    );
+    
 
     return [];
   }, [

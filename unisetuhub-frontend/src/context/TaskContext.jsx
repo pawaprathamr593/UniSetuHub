@@ -369,16 +369,6 @@ export function TaskProvider({ children }) {
         };
       }
 
-      console.log(
-        "Updating task:",
-        updatedTask.id
-      );
-
-      console.log(
-        "Update request body:",
-        taskBody
-      );
-
       /*
        * ---------------------------------------------------------
        * CHANGED BY
@@ -469,10 +459,7 @@ export function TaskProvider({ children }) {
       const savedTask =
         JSON.parse(responseText);
 
-      console.log(
-        "Updated task from backend:",
-        savedTask
-      );
+     
 
       /*
        * ---------------------------------------------------------

@@ -156,10 +156,7 @@ export function ProjectProvider({ children }) {
         ),
       };
 
-      console.log(
-        "Creating project:",
-        project
-      );
+     
 
       /*
        * =====================================================
@@ -343,10 +340,7 @@ export function ProjectProvider({ children }) {
         ),
       };
 
-      console.log(
-        "Updating project:",
-        project
-      );
+      
 
       /*
        * =====================================================

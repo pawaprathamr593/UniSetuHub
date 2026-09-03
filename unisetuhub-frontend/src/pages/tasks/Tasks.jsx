@@ -1,4 +1,3 @@
-
 import {
   CheckCircle2,
   Circle,
@@ -221,11 +220,185 @@ function Tasks() {
 
   /*
    * =========================================================
+   * ROLE BASED TASK ACCESS
+   * =========================================================
+   */
+
+  const currentUserId = String(
+    currentUser?.id || ""
+  );
+
+  const currentUserRole = String(
+    currentUser?.role || ""
+  ).toUpperCase();
+
+  const currentCompanyId = String(
+    currentUser?.company?.id ||
+      currentUser?.companyId ||
+      currentUser?.company?.companyId ||
+      ""
+  );
+
+  /*
+   * =========================================================
+   * FIND PROJECT FOR TASK
+   * =========================================================
+   */
+
+  const getTaskProject = (task) => {
+    /*
+     * Task already contains project details.
+     * Try to match it with ProjectContext first.
+     */
+
+    const taskProjectId = String(
+      task?.project?.id ||
+        task?.project?.code ||
+        task?.projectId ||
+        ""
+    );
+
+    if (!taskProjectId) {
+      return null;
+    }
+
+    const project = projects.find(
+      (item) =>
+        String(item?.id || "") ===
+          taskProjectId ||
+        String(item?.code || "") ===
+          taskProjectId
+    );
+
+    return project || task?.project || null;
+  };
+
+  /*
+   * =========================================================
+   * PROJECT LEAD PROJECTS
+   * =========================================================
+   */
+
+  const projectLeadProjectIds = new Set();
+
+  if (currentUserRole === "PROJECT_LEAD") {
+    projects.forEach((project) => {
+      const projectLeaderId = String(
+        project?.projectLeader?.id ||
+          project?.projectLeaderId ||
+          ""
+      );
+
+      if (
+        projectLeaderId &&
+        projectLeaderId === currentUserId
+      ) {
+        const projectId = String(
+          project?.id ||
+            project?.code ||
+            ""
+        );
+
+        if (projectId) {
+          projectLeadProjectIds.add(
+            projectId
+          );
+        }
+      }
+    });
+  }
+
+  /*
+   * =========================================================
+   * TASK ACCESS CHECK
+   * =========================================================
+   */
+
+  const taskIsVisibleToUser = (task) => {
+    /*
+     * WEBSITE ADMIN
+     * Can see every task.
+     */
+
+    if (currentUserRole === "WEBSITE_ADMIN") {
+      return true;
+    }
+
+    const taskProject =
+      getTaskProject(task);
+
+    /*
+     * COMPANY HEAD
+     * Can see all tasks belonging
+     * to projects in their company.
+     */
+
+    if (currentUserRole === "COMPANY_HEAD") {
+      const taskCompanyId = String(
+        taskProject?.company?.id ||
+          taskProject?.companyId ||
+          taskProject?.company?.companyId ||
+          ""
+      );
+
+      return (
+        currentCompanyId !== "" &&
+        taskCompanyId !== "" &&
+        taskCompanyId === currentCompanyId
+      );
+    }
+
+    /*
+     * PROJECT LEAD
+     * Can see only tasks belonging
+     * to projects they lead.
+     */
+
+    if (currentUserRole === "PROJECT_LEAD") {
+      const taskProjectId = String(
+        taskProject?.id ||
+          taskProject?.code ||
+          task?.projectId ||
+          ""
+      );
+
+      return projectLeadProjectIds.has(
+        taskProjectId
+      );
+    }
+
+    /*
+     * EMPLOYEE
+     * Can see only their assigned tasks.
+     */
+
+    if (currentUserRole === "EMPLOYEE") {
+      const assigneeId = String(
+        task?.assignee?.id ||
+          task?.assigneeId ||
+          ""
+      );
+
+      return (
+        assigneeId !== "" &&
+        assigneeId === currentUserId
+      );
+    }
+
+    return false;
+  };
+
+  /*
+   * =========================================================
    * FILTER TASKS
    * =========================================================
    */
 
-  const filteredTasks = tasks.filter((task) => {
+  const scopedTasks = tasks.filter(
+    taskIsVisibleToUser
+  );
+
+  const filteredTasks = scopedTasks.filter((task) => {
     const searchText = search
       .trim()
       .toLowerCase();
@@ -566,7 +739,7 @@ function Tasks() {
 
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               Showing {filteredTasks.length} of{" "}
-              {tasks.length} tasks
+              {scopedTasks.length} tasks
             </p>
 
           </div>
@@ -853,7 +1026,7 @@ function Tasks() {
           </h2>
 
           <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            {tasks.length === 0
+            {scopedTasks.length === 0
               ? "Tasks created inside your projects will appear here."
               : "Try changing your search or filters."}
           </p>
@@ -1007,4 +1180,3 @@ function Tasks() {
 }
 
 export default Tasks;
-

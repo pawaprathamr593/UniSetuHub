@@ -1178,92 +1178,96 @@ function Dashboard() {
 
           {/* Pending Approval */}
 
-          <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
+          {role !== ROLES.WEBSITE_ADMIN && (
 
-            <div className="flex items-center justify-between">
+            <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
+
+              <div className="flex items-center justify-between">
+
+                <div>
+
+                  <p className="text-sm font-semibold">
+                    Pending Review
+                  </p>
+
+                  <p className="mt-1 text-xs text-slate-400">
+                    Work waiting for review
+                  </p>
+
+                </div>
+
+                <Clock3
+                  size={20}
+                  className="text-amber-500"
+                />
+
+              </div>
+
+              <p className="mt-6 text-4xl font-bold">
+                {pendingApprovalTasks}
+              </p>
+
+              <button
+                type="button"
+                onClick={() =>
+                  navigate("/tasks")
+                }
+                className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400"
+              >
+                View Tasks
+                <ArrowRight size={14} />
+              </button>
+
+            </div>
+          )}
+
+          {/* Quick access */}
+
+          {role !== ROLES.WEBSITE_ADMIN && (
+            <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
 
               <div>
 
                 <p className="text-sm font-semibold">
-                  Pending Review
+                  Workspace
                 </p>
 
                 <p className="mt-1 text-xs text-slate-400">
-                  Work waiting for review
+                  Quick access
                 </p>
 
               </div>
 
-              <Clock3
-                size={20}
-                className="text-amber-500"
-              />
+              <div className="mt-5 space-y-2">
+
+                <QuickAction
+                  label="Projects"
+                  icon={
+                    <FolderKanban
+                      size={15}
+                    />
+                  }
+                  onClick={() =>
+                    navigate("/projects")
+                  }
+                />
+
+                <QuickAction
+                  label="Tasks"
+                  icon={
+                    <ListTodo
+                      size={15}
+                    />
+                  }
+                  onClick={() =>
+                    navigate("/tasks")
+                  }
+                />
+
+              </div>
 
             </div>
-
-            <p className="mt-6 text-4xl font-bold">
-              {pendingApprovalTasks}
-            </p>
-
-            <button
-              type="button"
-              onClick={() =>
-                navigate("/tasks")
-              }
-              className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400"
-            >
-              View Tasks
-              <ArrowRight size={14} />
-            </button>
-
-          </div>
-
-
-          {/* Quick access */}
-
-          <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
-
-            <div>
-
-              <p className="text-sm font-semibold">
-                Workspace
-              </p>
-
-              <p className="mt-1 text-xs text-slate-400">
-                Quick access
-              </p>
-
-            </div>
-
-            <div className="mt-5 space-y-2">
-
-              <QuickAction
-                label="Projects"
-                icon={
-                  <FolderKanban
-                    size={15}
-                  />
-                }
-                onClick={() =>
-                  navigate("/projects")
-                }
-              />
-
-              <QuickAction
-                label="Tasks"
-                icon={
-                  <ListTodo
-                    size={15}
-                  />
-                }
-                onClick={() =>
-                  navigate("/tasks")
-                }
-              />
-
-            </div>
-
-          </div>
+          )}
 
         </div>
 
@@ -1352,205 +1356,204 @@ function Dashboard() {
     EMPLOYEE ANALYTICS
 ================================================= */}
 
-<div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-6 xl:grid-cols-2">
 
-  {/* MY TASK STATUS - PIE */}
+        {/* MY TASK STATUS - PIE */}
 
-  <AnalyticsCard
-    title="My Task Status"
-    subtitle="Your current task distribution"
-  >
+        <AnalyticsCard
+          title="My Task Status"
+          subtitle="Your current task distribution"
+        >
 
-    {employeeTaskStatusData.length > 0 ? (
+          {employeeTaskStatusData.length > 0 ? (
 
-      <ResponsiveContainer
-        width="100%"
-        height={280}
-      >
-        <PieChart>
+            <ResponsiveContainer
+              width="100%"
+              height={280}
+            >
+              <PieChart>
 
-          <Pie
-            data={employeeTaskStatusData}
-            cx="50%"
-            cy="50%"
-            innerRadius={65}
-            outerRadius={95}
-            paddingAngle={3}
-            dataKey="value"
+                <Pie
+                  data={employeeTaskStatusData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={65}
+                  outerRadius={95}
+                  paddingAngle={3}
+                  dataKey="value"
+                >
+
+                  {employeeTaskStatusData.map(
+                    (entry, index) => (
+                      <Cell
+                        key={`employee-${index}`}
+                        fill={
+                          PIE_COLORS[
+                          index % PIE_COLORS.length
+                          ]
+                        }
+                      />
+                    )
+                  )}
+
+                </Pie>
+
+                <Tooltip />
+
+                <Legend />
+
+              </PieChart>
+
+            </ResponsiveContainer>
+
+          ) : (
+
+            <EmptyChart
+              message="No task data available"
+            />
+
+          )}
+
+        </AnalyticsCard>
+
+
+        {/* EMPLOYEE TASK BAR GRAPH */}
+
+        <AnalyticsCard
+          title="My Task Breakdown"
+          subtitle="Number of tasks in each status"
+        >
+
+          <ResponsiveContainer
+            width="100%"
+            height={280}
           >
 
-            {employeeTaskStatusData.map(
-              (entry, index) => (
-                <Cell
-                  key={`employee-${index}`}
-                  fill={
-                    PIE_COLORS[
-                      index % PIE_COLORS.length
-                    ]
-                  }
-                />
-              )
-            )}
+            <BarChart
+              data={employeeTaskBarData}
+              margin={{
+                top: 10,
+                right: 10,
+                left: -20,
+                bottom: 10,
+              }}
+            >
 
-          </Pie>
+              <CartesianGrid
+                strokeDasharray="3 3"
+              />
 
-          <Tooltip />
+              <XAxis
+                dataKey="name"
+                tick={{
+                  fontSize: 11,
+                }}
+              />
 
-          <Legend />
+              <YAxis
+                allowDecimals={false}
+                tick={{
+                  fontSize: 11,
+                }}
+              />
 
-        </PieChart>
+              <Tooltip />
 
-      </ResponsiveContainer>
+              <Bar
+                dataKey="count"
+                name="Tasks"
+                fill="#6366f1"
+                radius={[
+                  5,
+                  5,
+                  0,
+                  0,
+                ]}
+              />
 
-    ) : (
+            </BarChart>
 
-      <EmptyChart
-        message="No task data available"
-      />
+          </ResponsiveContainer>
 
-    )}
+        </AnalyticsCard>
 
-  </AnalyticsCard>
-
-
-  {/* EMPLOYEE TASK BAR GRAPH */}
-
-  <AnalyticsCard
-    title="My Task Breakdown"
-    subtitle="Number of tasks in each status"
-  >
-
-    <ResponsiveContainer
-      width="100%"
-      height={280}
-    >
-
-      <BarChart
-        data={employeeTaskBarData}
-        margin={{
-          top: 10,
-          right: 10,
-          left: -20,
-          bottom: 10,
-        }}
-      >
-
-        <CartesianGrid
-          strokeDasharray="3 3"
-        />
-
-        <XAxis
-          dataKey="name"
-          tick={{
-            fontSize: 11,
-          }}
-        />
-
-        <YAxis
-          allowDecimals={false}
-          tick={{
-            fontSize: 11,
-          }}
-        />
-
-        <Tooltip />
-
-        <Bar
-          dataKey="count"
-          name="Tasks"
-          fill="#6366f1"
-          radius={[
-            5,
-            5,
-            0,
-            0,
-          ]}
-        />
-
-      </BarChart>
-
-    </ResponsiveContainer>
-
-  </AnalyticsCard>
-
-</div>
+      </div>
 
 
-{/* =================================================
+      {/* =================================================
     EMPLOYEE PROGRESS
 ================================================= */}
 
-<div className="grid gap-6 lg:grid-cols-1">
+      <div className="grid gap-6 lg:grid-cols-1">
 
-  <AnalyticsCard
-    title="My Task Progress"
-    subtitle="Completion across your assigned work"
-  >
+        <AnalyticsCard
+          title="My Task Progress"
+          subtitle="Completion across your assigned work"
+        >
 
-    <div className="flex h-[280px] flex-col justify-center">
+          <div className="flex h-[280px] flex-col justify-center">
 
-      <div className="text-center">
+            <div className="text-center">
 
-        <p className="text-5xl font-bold">
+              <p className="text-5xl font-bold">
 
-          {myTasks.length > 0
-            ? Math.round(
-                (completedTasks /
-                  myTasks.length) *
-                  100
-              )
-            : 0}
-
-          %
-
-        </p>
-
-        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-          task completion
-        </p>
-
-      </div>
-
-      <div className="mx-auto mt-8 w-full max-w-md">
-
-        <div className="h-4 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-indigo-600 to-purple-600"
-            style={{
-              width: `${
-                myTasks.length > 0
+                {myTasks.length > 0
                   ? Math.round(
-                      (completedTasks /
-                        myTasks.length) *
+                    (completedTasks /
+                      myTasks.length) *
+                    100
+                  )
+                  : 0}
+
+                %
+
+              </p>
+
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                task completion
+              </p>
+
+            </div>
+
+            <div className="mx-auto mt-8 w-full max-w-md">
+
+              <div className="h-4 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-indigo-600 to-purple-600"
+                  style={{
+                    width: `${myTasks.length > 0
+                      ? Math.round(
+                        (completedTasks /
+                          myTasks.length) *
                         100
-                    )
-                  : 0
-              }%`,
-            }}
-          />
+                      )
+                      : 0
+                      }%`,
+                  }}
+                />
 
-        </div>
+              </div>
 
-        <div className="mt-3 flex justify-between text-xs text-slate-400">
+              <div className="mt-3 flex justify-between text-xs text-slate-400">
 
-          <span>
-            {completedTasks} completed
-          </span>
+                <span>
+                  {completedTasks} completed
+                </span>
 
-          <span>
-            {myTasks.length} total
-          </span>
+                <span>
+                  {myTasks.length} total
+                </span>
 
-        </div>
+              </div>
+
+            </div>
+
+          </div>
+
+        </AnalyticsCard>
 
       </div>
-
-    </div>
-
-  </AnalyticsCard>
-
-</div>
 
 
       {/* =================================================

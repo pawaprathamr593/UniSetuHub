@@ -71,17 +71,7 @@ function ProjectTasks() {
         }
     }, [projectId]);
 
-    /*
-     * =========================================================
-     * DEBUG
-     * =========================================================
-     */
-
-    console.log("========== PROJECT TASKS ==========");
-    console.log("URL PROJECT ID:", projectId);
-    console.log("CURRENT PROJECT:", currentProject);
-    console.log("PROJECT MEMBERS:", currentProject?.members);
-    console.log("ALL TASKS:", tasks);
+   
 
     /*
      * =========================================================
@@ -226,10 +216,7 @@ function ProjectTasks() {
             );
         });
 
-        console.log(
-            "PROJECT TASKS:",
-            filtered
-        );
+       
 
         return filtered;
     }, [tasks, normalizedProjectId]);
@@ -385,15 +372,7 @@ function ProjectTasks() {
 
     const handleCreateTask = async (taskData) => {
 
-        console.log(
-            "Creating task:",
-            taskData
-        );
-
-        console.log(
-            "Project ID:",
-            projectId
-        );
+        
 
         const result =
             await addTask(
@@ -401,10 +380,7 @@ function ProjectTasks() {
                 projectId
             );
 
-        console.log(
-            "Create task result:",
-            result
-        );
+       
 
         if (result?.success) {
             setShowCreateTask(false);
