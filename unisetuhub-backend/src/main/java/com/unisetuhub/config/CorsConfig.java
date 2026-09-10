@@ -21,7 +21,7 @@ public class CorsConfig {
                     .allowedOrigins(
                         "http://localhost:3000",
                         "http://localhost:5173",
-                        "https://uni-setu-b6p2hn8bq-pawaprathamr593s-projects.vercel.app"
+                        "https://uni-setu-hub-git-main-pawaprathamr593s-projects.vercel.app"
                     )
                     .allowedMethods(
                         "GET",
