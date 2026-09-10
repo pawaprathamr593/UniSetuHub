@@ -6,12 +6,13 @@ import {
 } from "react";
 
 import { ROLES } from "../constants/roles";
+import { API_URL } from "../api/api";
 
 const AuthContext = createContext();
 
 
 
-const API_URL = "http://localhost:8080";
+const response = await fetch(`${API_URL}/companies`);
 
 
 

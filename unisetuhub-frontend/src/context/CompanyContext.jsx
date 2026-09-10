@@ -4,10 +4,11 @@ import {
   useEffect,
   useState,
 } from "react";
+import { API_URL } from "../api/api";
 
 const CompanyContext = createContext(null);
 
-const API_URL = "http://localhost:8080";
+const response = await fetch(`${API_URL}/companies`);
 
 export function CompanyProvider({ children }) {
   const [companies, setCompanies] = useState([]);

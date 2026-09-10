@@ -6,10 +6,11 @@ import {
 } from "react";
 
 import { useAuth } from "./AuthContext";
+import { API_URL } from "../api/api";
 
 const ProjectContext = createContext();
 
-const API_URL = "http://localhost:8080";
+const response = await fetch(`${API_URL}/companies`);
 
 export function ProjectProvider({ children }) {
 
