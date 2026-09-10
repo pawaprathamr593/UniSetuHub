@@ -234,13 +234,21 @@ public class ProjectService {
             members.add(projectLeader);
         }
 
-        project.setMembers(members);
-
         // -----------------------------------------------------
-        // SAVE
-        // -----------------------------------------------------
+// GENERATE PROJECT ID
+// -----------------------------------------------------
 
-        return projectRepository.save(project);
+if (project.getId() == null ||
+        project.getId().trim().isEmpty()) {
+
+    project.setId(UUID.randomUUID().toString());
+}
+
+// -----------------------------------------------------
+// SAVE
+// -----------------------------------------------------
+
+return projectRepository.save(project);
     }
 
     // =========================================================
