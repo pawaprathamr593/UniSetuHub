@@ -165,9 +165,34 @@ function NotificationToast() {
   };
 
   return (
-    <div className="fixed right-5 top-20 z-[9999] w-[360px] max-w-[calc(100vw-2rem)]">
+    <div
+      className="
+        fixed
+        right-3
+        top-16
+        z-[9999]
+        w-[calc(100vw-1.5rem)]
+        max-w-[360px]
+        sm:right-4
+        sm:top-20
+        sm:w-[360px]
+        md:right-5
+      "
+    >
 
-      <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+      <div
+        className="
+          relative
+          overflow-hidden
+          rounded-xl
+          border
+          border-slate-200
+          bg-white
+          shadow-2xl
+          dark:border-slate-700
+          dark:bg-slate-900
+        "
+      >
 
         {/* =================================================
             CONTENT
@@ -176,25 +201,70 @@ function NotificationToast() {
         <button
           type="button"
           onClick={handleClick}
-          className="flex w-full gap-3 p-4 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800"
+          className="
+            flex
+            w-full
+            gap-3
+            p-3.5
+            text-left
+            transition
+            hover:bg-slate-50
+            sm:p-4
+            dark:hover:bg-slate-800
+          "
         >
 
           {/* Icon */}
 
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-50 dark:bg-indigo-500/10">
+          <div
+            className="
+              flex
+              h-9
+              w-9
+              shrink-0
+              items-center
+              justify-center
+              rounded-full
+              bg-indigo-50
+              dark:bg-indigo-500/10
+            "
+          >
             {getIcon()}
           </div>
 
           {/* Text */}
 
-          <div className="min-w-0 flex-1 pr-5">
+          <div
+            className="
+              min-w-0
+              flex-1
+              pr-5
+            "
+          >
 
-            <p className="text-sm font-semibold text-slate-900 dark:text-white">
+            <p
+              className="
+                break-words
+                text-sm
+                font-semibold
+                text-slate-900
+                dark:text-white
+              "
+            >
               {notification?.title ||
                 "New notification"}
             </p>
 
-            <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            <p
+              className="
+                mt-1
+                break-words
+                text-xs
+                leading-5
+                text-slate-500
+                dark:text-slate-400
+              "
+            >
               {notification?.message ||
                 ""}
             </p>
@@ -210,7 +280,23 @@ function NotificationToast() {
         <button
           type="button"
           onClick={dismissToast}
-          className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-white"
+          className="
+            absolute
+            right-2
+            top-2
+            flex
+            h-7
+            w-7
+            items-center
+            justify-center
+            rounded-md
+            text-slate-400
+            transition
+            hover:bg-slate-100
+            hover:text-slate-700
+            dark:hover:bg-slate-800
+            dark:hover:text-white
+          "
           title="Dismiss"
         >
           <X size={15} />
@@ -220,7 +306,14 @@ function NotificationToast() {
             PROGRESS BAR
         ================================================= */}
 
-        <div className="h-1 w-full bg-slate-100 dark:bg-slate-800">
+        <div
+          className="
+            h-1
+            w-full
+            bg-slate-100
+            dark:bg-slate-800
+          "
+        >
 
           <div
             className="h-full bg-indigo-500"

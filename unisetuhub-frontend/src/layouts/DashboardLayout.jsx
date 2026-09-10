@@ -755,8 +755,8 @@ function DashboardLayout() {
               </button>
 
               {/* =================================================
-                  NOTIFICATIONS
-              ================================================= */}
+    NOTIFICATIONS
+================================================= */}
 
               <div
                 ref={notificationRef}
@@ -784,16 +784,35 @@ function DashboardLayout() {
                 </button>
 
                 {/* =================================================
-                    NOTIFICATION DROPDOWN
-                ================================================= */}
+      NOTIFICATION DROPDOWN
+  ================================================= */}
 
                 {showNotifications && (
-                  <div className="absolute right-0 top-12 z-[2000] w-[calc(100vw-32px)] max-w-[360px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                  <div
+                    className="
+        absolute
+        right-0
+        top-12
+        z-[2000]
+        w-[calc(100vw-24px)]
+        max-w-[360px]
+        overflow-hidden
+        rounded-xl
+        border
+        border-slate-200
+        bg-white
+        shadow-xl
+        dark:border-slate-700
+        dark:bg-slate-900
+        sm:w-[360px]
+      "
+                  >
 
                     {/* Header */}
 
-                    <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-                      <div>
+                    <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-3.5 py-3 sm:px-4 dark:border-slate-800">
+
+                      <div className="min-w-0">
                         <h3 className="text-sm font-semibold">
                           Notifications
                         </h3>
@@ -809,18 +828,24 @@ function DashboardLayout() {
                         <button
                           type="button"
                           onClick={markAllAsRead}
-                          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-indigo-600 transition hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-500/10"
+                          className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-indigo-600 transition hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-500/10"
                         >
                           <Check size={13} />
 
-                          Mark all read
+                          <span className="hidden xs:inline sm:inline">
+                            Mark all read
+                          </span>
+
+                          <span className="xs:hidden sm:hidden">
+                            Read all
+                          </span>
                         </button>
                       )}
                     </div>
 
                     {/* Notification List */}
 
-                    <div className="max-h-[420px] overflow-y-auto">
+                    <div className="max-h-[min(420px,calc(100vh-140px))] overflow-y-auto">
                       {notificationsLoading ? (
                         <div className="px-4 py-10 text-center text-sm text-slate-400">
                           Loading notifications...
@@ -862,11 +887,12 @@ function DashboardLayout() {
                                     notification
                                   )
                                 }
-                                className={`flex w-full gap-3 border-b border-slate-100 px-4 py-3 text-left transition last:border-b-0 dark:border-slate-800 ${isRead
+                                className={`flex w-full gap-3 border-b border-slate-100 px-3.5 py-3 text-left transition last:border-b-0 sm:px-4 dark:border-slate-800 ${isRead
                                     ? "bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800/60"
                                     : "bg-indigo-50/60 hover:bg-indigo-50 dark:bg-indigo-500/5 dark:hover:bg-indigo-500/10"
                                   }`}
                               >
+
                                 {/* Notification Indicator */}
 
                                 <div className="relative mt-0.5 shrink-0">
@@ -887,9 +913,11 @@ function DashboardLayout() {
                                 {/* Content */}
 
                                 <div className="min-w-0 flex-1">
+
                                   <div className="flex items-start justify-between gap-2">
+
                                     <p
-                                      className={`text-sm ${isRead
+                                      className={`min-w-0 break-words text-sm ${isRead
                                           ? "font-medium text-slate-700 dark:text-slate-300"
                                           : "font-semibold text-slate-900 dark:text-white"
                                         }`}
@@ -898,17 +926,20 @@ function DashboardLayout() {
                                         "Notification"}
                                     </p>
 
-                                    <span className="shrink-0 text-[10px] text-slate-400">
+                                    <span className="shrink-0 whitespace-nowrap text-[10px] text-slate-400">
                                       {formatNotificationTime(
                                         notification.createdAt
                                       )}
                                     </span>
+
                                   </div>
 
-                                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                                  <p className="mt-1 line-clamp-2 break-words text-xs leading-5 text-slate-500 dark:text-slate-400">
                                     {notification.message || ""}
                                   </p>
+
                                 </div>
+
                               </button>
                             );
                           })
@@ -956,8 +987,8 @@ function DashboardLayout() {
                   <ChevronDown
                     size={15}
                     className={`hidden text-slate-400 transition-transform sm:block ${showProfileDropdown
-                        ? "rotate-180"
-                        : ""
+                      ? "rotate-180"
+                      : ""
                       }`}
                   />
                 </button>

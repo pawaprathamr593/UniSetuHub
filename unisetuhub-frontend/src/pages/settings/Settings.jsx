@@ -9,6 +9,8 @@ import {
 
 import { useState } from "react";
 
+import { API_URL } from "../../api/api";
+
 import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 
@@ -131,17 +133,17 @@ function Settings() {
         company:
           currentUser.company
             ? {
-                id: currentUser.company.id,
-              }
+              id: currentUser.company.id,
+            }
             : currentUser.companyId
               ? {
-                  id: currentUser.companyId,
-                }
+                id: currentUser.companyId,
+              }
               : null,
       };
 
       const response = await fetch(
-        `http://localhost:8080/users/${encodeURIComponent(
+        `${API_URL}/users/${encodeURIComponent(
           currentUser.id
         )}`,
         {
@@ -260,19 +262,17 @@ function Settings() {
                 onClick={() =>
                   setTheme(item.value)
                 }
-                className={`rounded-xl border p-5 text-left transition ${
-                  selected
+                className={`rounded-xl border p-5 text-left transition ${selected
                     ? "border-indigo-500 bg-indigo-50 dark:border-indigo-500 dark:bg-indigo-500/10"
                     : "border-slate-200 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
-                }`}
+                  }`}
               >
 
                 <div
-                  className={`mb-4 flex h-10 w-10 items-center justify-center rounded-lg ${
-                    selected
+                  className={`mb-4 flex h-10 w-10 items-center justify-center rounded-lg ${selected
                       ? "bg-indigo-600 text-white"
                       : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-                  }`}
+                    }`}
                 >
                   <Icon size={19} />
                 </div>
