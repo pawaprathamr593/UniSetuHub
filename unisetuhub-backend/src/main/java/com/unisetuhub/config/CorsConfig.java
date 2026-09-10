@@ -24,7 +24,7 @@ public class CorsConfig {
                         "https://uni-setu-hub.vercel.app",
                         "https://uni-setu-hub-git-main-pawaprathamr593s-projects.vercel.app",
                         "https://uni-setu-hbh5y52no-pawaprathamr593s-projects.vercel.app"
-                    )
+                    
                     )
                     .allowedMethods(
                         "GET",
