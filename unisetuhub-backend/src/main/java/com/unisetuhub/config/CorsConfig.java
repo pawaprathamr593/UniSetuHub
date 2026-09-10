@@ -20,7 +20,8 @@ public class CorsConfig {
                     .addMapping("/**")
                     .allowedOrigins(
                         "http://localhost:3000",
-                        "http://localhost:5173"
+                        "http://localhost:5173",
+                        "https://uni-setu-b6p2hn8bq-pawaprathamr593s-projects.vercel.app"
                     )
                     .allowedMethods(
                         "GET",
