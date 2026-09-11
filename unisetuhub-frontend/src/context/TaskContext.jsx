@@ -10,7 +10,6 @@ import { API_URL } from "../api/api";
 
 const TaskContext = createContext();
 
-const response = await fetch(`${API_URL}/companies`);
 
 export function TaskProvider({ children }) {
   const { currentUser } = useAuth();
