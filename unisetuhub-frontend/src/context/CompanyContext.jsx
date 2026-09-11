@@ -8,7 +8,7 @@ import { API_URL } from "../api/api";
 
 const CompanyContext = createContext(null);
 
-const response = await fetch(`${API_URL}/companies`);
+
 
 export function CompanyProvider({ children }) {
   const [companies, setCompanies] = useState([]);
