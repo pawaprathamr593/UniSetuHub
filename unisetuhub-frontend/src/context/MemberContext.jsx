@@ -10,7 +10,7 @@ import { API_URL } from "../api/api";
 
 const MemberContext = createContext();
 
-const response = await fetch(`${API_URL}/companies`);
+
 
 export function MemberProvider({ children }) {
   const { users = [], fetchUsers } = useAuth();
