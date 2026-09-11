@@ -11,7 +11,6 @@ import { API_URL } from "../api/api";
 
 const NotificationContext = createContext();
 
-const response = await fetch(`${API_URL}/companies`);
 
 export function NotificationProvider({ children }) {
   const { currentUser } = useAuth();
