@@ -12,9 +12,6 @@ const AuthContext = createContext();
 
 
 
-const response = await fetch(`${API_URL}/companies`);
-
-
 
 /*
  * =========================================================
