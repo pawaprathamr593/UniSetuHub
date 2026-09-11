@@ -10,7 +10,6 @@ import { API_URL } from "../api/api";
 
 const ProjectContext = createContext();
 
-const response = await fetch(`${API_URL}/companies`);
 
 export function ProjectProvider({ children }) {
 
