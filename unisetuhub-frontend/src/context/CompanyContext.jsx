@@ -4,11 +4,10 @@ import {
   useEffect,
   useState,
 } from "react";
+
 import { API_URL } from "../api/api";
 
 const CompanyContext = createContext(null);
-
-
 
 export function CompanyProvider({ children }) {
   const [companies, setCompanies] = useState([]);
@@ -20,22 +19,32 @@ export function CompanyProvider({ children }) {
     setError("");
 
     try {
-      const response = await fetch(`${API_URL}/companies`);
+      const response = await fetch(
+        `${API_URL}/companies`
+      );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch companies.");
+        throw new Error(
+          "Failed to fetch companies."
+        );
       }
 
       const data = await response.json();
 
-      setCompanies(Array.isArray(data) ? data : []);
+      setCompanies(
+        Array.isArray(data) ? data : []
+      );
 
       return Array.isArray(data) ? data : [];
     } catch (err) {
-      console.error("Fetch companies error:", err);
+      console.error(
+        "Fetch companies error:",
+        err
+      );
 
       setError(
-        err?.message || "Unable to load companies."
+        err?.message ||
+          "Unable to load companies."
       );
 
       return [];
@@ -47,7 +56,8 @@ export function CompanyProvider({ children }) {
   const getCompanyById = (companyId) => {
     return companies.find(
       (company) =>
-        String(company?.id) === String(companyId)
+        String(company?.id) ===
+        String(companyId)
     );
   };
 
@@ -71,16 +81,10 @@ export function CompanyProvider({ children }) {
   );
 }
 
-/*
- * Used by Companies.jsx
- */
 export function useCompanies() {
   return useContext(CompanyContext);
 }
 
-/*
- * Used by Employees.jsx
- */
 export function useCompany() {
   return useContext(CompanyContext);
 }
